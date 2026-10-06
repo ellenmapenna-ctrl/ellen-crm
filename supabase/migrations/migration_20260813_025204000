@@ -1,0 +1,1 @@
+delete from public.clientes where id = 'e889de6c-23b0-43cc-863e-ce3e1dcb3bc4';

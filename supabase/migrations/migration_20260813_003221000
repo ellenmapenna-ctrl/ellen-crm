@@ -1,0 +1,5 @@
+-- Limpeza dos registros corrompidos pela importação com o parser antigo (nome_completo virou uma data por desalinhamento de colunas).
+-- apolices/coberturas/cliente_tags desses clientes são removidos em cascata pelas FKs ON DELETE CASCADE ja existentes.
+delete from public.clientes
+where nome_completo ~ '^\d{1,2}/\d{1,2}(/\d{2,4})?$'
+   or nome_completo ~ '^\d+$';

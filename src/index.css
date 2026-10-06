@@ -1,0 +1,164 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 99%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 199 89% 48%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.6rem;
+
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(199 89% 48%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 40% 98%));
+    --shadow-elegant: 0 10px 30px -12px hsl(221 83% 53% / 0.35);
+    --shadow-soft: 0 4px 14px -6px hsl(222 47% 11% / 0.12);
+    --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Sidebar sempre escura (imita o menu preto do GlobalCRM), independente
+       do tema claro/escuro do conteúdo principal. */
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 210 40% 92%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 16%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 18%;
+    --sidebar-ring: 217 91% 60%;
+
+    --success: 160 84% 30%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 160 76% 92%;
+
+    /* Espelho da apólice: imita o formato impresso da seguradora — fixo, não troca com o tema. Valores convertidos com precisão dos hex originais do GlobalCRM. */
+    --mirror-navy: 226 61% 27%;        /* #1b2f6e */
+    --mirror-navy-deep: 227 57% 18%;   /* #14204a */
+    --mirror-navy-foreground: 0 0% 100%; /* branco fixo sobre o navy — não é o --primary-foreground do tema */
+    --mirror-text: 228 39% 18%;        /* #1c2340 — texto padrão do card */
+    --mirror-row-alt: 219 63% 95%;     /* #e9effa */
+    --mirror-row-border: 222 44% 92%;  /* #e3e8f4 */
+    --mirror-rail: 221 42% 79%;        /* #b3c1e0 */
+    --mirror-link: 224 64% 46%;        /* #2a53c0 */
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 44% 10%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 44% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+    --primary-glow: 199 89% 48%;
+
+    --secondary: 217 33% 16%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 16%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 16%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 217 91% 60%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(199 89% 48%));
+    --gradient-subtle: linear-gradient(180deg, hsl(222 44% 10%), hsl(222 47% 7%));
+    --shadow-elegant: 0 10px 30px -12px hsl(217 91% 60% / 0.45);
+    --shadow-soft: 0 4px 14px -6px hsl(0 0% 0% / 0.4);
+
+    --sidebar-background: 222 47% 9%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 14%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 18%;
+    --sidebar-ring: 217 91% 60%;
+
+    --success: 160 70% 45%;
+    --success-foreground: 222 47% 11%;
+    --success-soft: 160 40% 20%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-primary {
+    background-image: var(--gradient-primary);
+  }
+  .bg-gradient-subtle {
+    background-image: var(--gradient-subtle);
+  }
+  .shadow-elegant {
+    box-shadow: var(--shadow-elegant);
+  }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+  /* Thin, theme-aware scrollbar for horizontal boards */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.35);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "buildCommand": "pnpm run build:prod",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/gerar-revisita.ts": {
+      "maxDuration": 60
+    },
+    "api/gerar-comparativo-pdf.ts": {
+      "maxDuration": 60
+    },
+    "api/baixar-previdencia-pdf.ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
