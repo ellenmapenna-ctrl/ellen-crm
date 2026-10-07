@@ -153,6 +153,13 @@ export function observacaoVencimentoDoCliente(apolices: { status: string; observ
   return obs.length > 0 ? obs.join(" · ") : null;
 }
 
+/** Dia do mês do vencimento ("2026-10-18" → 18), ou null. Não muda de mês para mês, então não precisa de atualização mensal. */
+export function diaDoVencimento(vencimentoIso: string | null): number | null {
+  if (!vencimentoIso) return null;
+  const dia = Number(vencimentoIso.slice(8, 10));
+  return dia >= 1 && dia <= 31 ? dia : null;
+}
+
 export type SituacaoVencimento = "vencido" | "hoje" | "breve" | "futuro";
 
 /** Quantos dias faltam (negativo = já passou) e a situação para colorir o destaque. */
