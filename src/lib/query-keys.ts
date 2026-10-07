@@ -43,6 +43,9 @@ export const qk = {
   templatesAniversario: {
     all: ["templates-aniversario", "all"] as const,
   },
+  previdenciaEstudo: {
+    byCliente: (clienteId: string) => ["previdencia-estudo", clienteId] as const,
+  },
   funilPosicoes: {
     all: ["funil-posicoes"] as const,
   },

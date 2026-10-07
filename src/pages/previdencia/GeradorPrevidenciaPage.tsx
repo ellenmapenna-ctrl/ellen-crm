@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useClientes } from "@/hooks/useClientes";
+import { usePrevidenciaEstudoInfo, useSalvarPrevidenciaEstudo } from "@/hooks/usePrevidenciaEstudo";
+import { blobParaBase64 } from "@/lib/base64";
 import { cn } from "@/lib/utils";
 import { gerarEstudoPrevidencia, type PrazoPensao, type ProdutoPrevidencia, type Sexo } from "@/lib/previdencia-calc";
 import { renderPrevidenciaHtml } from "@/lib/previdencia-template";
@@ -59,6 +61,8 @@ export function GeradorPrevidenciaPage() {
 
   const clienteSelecionado = clientes?.find((c) => c.id === clienteId);
   const clienteNome = clienteSelecionado?.nome_completo ?? clienteNomeLivre.trim();
+  const { data: estudoSalvo } = usePrevidenciaEstudoInfo(clienteId || undefined);
+  const salvarEstudo = useSalvarPrevidenciaEstudo();
 
   const input = useMemo(
     () => ({
@@ -126,6 +130,17 @@ export function GeradorPrevidenciaPage() {
       a.download = `Estudo_Previdencia_${clienteNome.replace(/[^a-zA-Z0-9]+/g, "_")}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+
+      if (clienteId) {
+        try {
+          await salvarEstudo.mutateAsync({ clienteId, pdfBase64: await blobParaBase64(blob), dados: input });
+          toast.success("PDF baixado e guardado no cliente.", { description: "A Revisão Anual vai usar este estudo automaticamente." });
+        } catch (err) {
+          toast.warning("O PDF baixou, mas não foi possível guardá-lo no cliente.", { description: err instanceof Error ? err.message : String(err) });
+        }
+      } else {
+        toast.info("PDF baixado. Para guardá-lo no cliente, selecione um cliente da carteira na lista.");
+      }
     } catch (err) {
       toast.error("Não foi possível gerar o PDF.", { description: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -278,6 +293,12 @@ export function GeradorPrevidenciaPage() {
               </div>
             )}
           </div>
+
+          {estudoSalvo?.updated_at && (
+            <p className="text-xs text-muted-foreground">
+              Este cliente já tem um estudo guardado, de {new Date(estudoSalvo.updated_at).toLocaleDateString("pt-BR")}. Ao baixar um novo, ele substitui o anterior.
+            </p>
+          )}
 
           <Button onClick={handleBaixarPdf} disabled={!valido || baixando} className="self-start">
             {baixando ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}

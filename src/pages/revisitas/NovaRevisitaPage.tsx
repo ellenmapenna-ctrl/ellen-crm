@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useClientes } from "@/hooks/useClientes";
+import { buscarPrevidenciaPdfBase64, usePrevidenciaEstudoInfo } from "@/hooks/usePrevidenciaEstudo";
 import { useCriarRevisita } from "@/hooks/useRevisitas";
 import { cn } from "@/lib/utils";
 import { SEGURADORAS, SUGESTOES_COBERTURA } from "@/lib/revisita-opcoes";
@@ -126,6 +127,9 @@ export function NovaRevisitaPage() {
   const [temResgateImport, setTemResgateImport] = useState(false);
   const [tabelaResgatePdf, setTabelaResgatePdf] = useState<File | null>(null);
   const [previdenciaPdf, setPrevidenciaPdf] = useState<File | null>(null);
+  const [trocarPrevidencia, setTrocarPrevidencia] = useState(false);
+  const { data: estudoSalvo } = usePrevidenciaEstudoInfo(clienteId || undefined);
+  const usandoEstudoSalvo = !!estudoSalvo && !trocarPrevidencia;
   const [instrucoesExtras, setInstrucoesExtras] = useState("");
   const [importando, setImportando] = useState(false);
   const [baixando, setBaixando] = useState(false);
@@ -212,7 +216,11 @@ export function NovaRevisitaPage() {
       const propostasPdfBase64 = await Promise.all(propostasValidas.map(fileParaBase64));
       const tabelaResgateBase64 = tabelaResgatePdf ? await fileParaBase64(tabelaResgatePdf) : undefined;
       const tabelaResgateMediaType = tabelaResgatePdf ? mediaTypeDoArquivo(tabelaResgatePdf) : undefined;
-      const previdenciaPdfBase64 = previdenciaPdf ? await fileParaBase64(previdenciaPdf) : undefined;
+      let previdenciaPdfBase64: string | undefined;
+      if (temResgateImport) {
+        if (previdenciaPdf) previdenciaPdfBase64 = await fileParaBase64(previdenciaPdf);
+        else if (usandoEstudoSalvo && clienteId) previdenciaPdfBase64 = (await buscarPrevidenciaPdfBase64(clienteId)) ?? undefined;
+      }
       const res = await fetch("/api/gerar-revisita", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -458,7 +466,24 @@ export function NovaRevisitaPage() {
                     </div>
                     <div>
                       <Rotulo>Proposta de previdência (PDF)</Rotulo>
-                      <Input type="file" accept="application/pdf" className="bg-white" onChange={(e) => setPrevidenciaPdf(e.target.files?.[0] ?? null)} />
+                      {usandoEstudoSalvo ? (
+                        <div className="flex flex-col gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 p-2.5 text-sm text-emerald-900">
+                          <span>
+                            Usando o último estudo de previdência gerado para este cliente
+                            {estudoSalvo?.updated_at ? ` (${new Date(estudoSalvo.updated_at).toLocaleDateString("pt-BR")})` : ""}.
+                          </span>
+                          <button type="button" className="self-start text-xs underline" onClick={() => setTrocarPrevidencia(true)}>
+                            Enviar outro arquivo
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <Input type="file" accept="application/pdf" className="bg-white" onChange={(e) => setPrevidenciaPdf(e.target.files?.[0] ?? null)} />
+                          {!estudoSalvo && clienteId && (
+                            <p className="mt-1 text-xs text-muted-foreground">Este cliente ainda não tem estudo guardado. Gere um em Previdência para ele ser usado automaticamente.</p>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

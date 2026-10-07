@@ -3975,6 +3975,40 @@ export type Database = {
           },
         ]
       }
+      previdencia_estudos: {
+        Row: {
+          cliente_id: string
+          created_at: string | null
+          id: string
+          input: Json | null
+          pdf_base64: string
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string | null
+          id?: string
+          input?: Json | null
+          pdf_base64: string
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string | null
+          id?: string
+          input?: Json | null
+          pdf_base64?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "previdencia_estudos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revisitas: {
         Row: {
           cliente_id: string | null
