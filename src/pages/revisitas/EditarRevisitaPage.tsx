@@ -271,7 +271,7 @@ export function EditarRevisitaPage() {
                       <Rotulo>Nova formatação</Rotulo>
                       <select
                         className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
-                        value={seguradoraDaLinha(c.novoSeguradora, dados.seguradoraNova)}
+                        value={seguradoraDaLinha(c.novoSeguradora, dados.seguradoraNova, "Azos")}
                         onChange={(e) => selecionarSeguradora(idx, "novo", e.target.value)}
                       >
                         <option value="">Escolher seguradora…</option>

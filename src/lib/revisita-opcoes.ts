@@ -46,9 +46,14 @@ export function opcoesSeguradora(valor: string, escolhida?: string): string[] {
   return [...doLado, ...SEGURADORAS.filter((s) => !doLado.some((d) => d.toLowerCase() === s.toLowerCase()))];
 }
 
-/** Valor mostrado na lista da linha: a escolha feita nela ou, se o lado tem uma seguradora só, essa seguradora. */
-export function seguradoraDaLinha(escolhida: string | undefined, valorDoLado: string): string {
+/**
+ * Valor mostrado na lista da linha: a escolha feita nela; senão a seguradora
+ * preferida (a principal, ex.: Azos) se estiver entre as do lado; senão a primeira.
+ */
+export function seguradoraDaLinha(escolhida: string | undefined, valorDoLado: string, preferida?: string): string {
   if (escolhida) return escolhida;
   const lista = listarSeguradoras(valorDoLado);
-  return lista.length === 1 ? lista[0] : "";
+  if (lista.length === 0) return "";
+  const principal = preferida ? lista.find((s) => s.toLowerCase() === preferida.toLowerCase()) : undefined;
+  return principal ?? lista[0];
 }
