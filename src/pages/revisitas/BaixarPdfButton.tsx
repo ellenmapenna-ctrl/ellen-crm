@@ -1,15 +1,15 @@
 // Botão "Baixar PDF" reutilizado na lista, na visualização e na edição de uma
-// revisita já salva. Diferente do fluxo de criação (onde os PDFs originais
-// ainda estão na memória do navegador), aqui os arquivos originais não ficam
-// guardados em lugar nenhum — só os dados estruturados — então pede pra
-// reenviar a apólice (e, se quiser, tabela de resgate e apresentação da
-// seguradora) só na hora de baixar.
+// revisita já salva. O clique principal baixa direto o quadro comparativo
+// (gerado a partir dos dados salvos). Os arquivos originais (apólice, tabela
+// de resgate, apresentação) não ficam guardados em lugar nenhum, então quem
+// quiser o PDF completo usa o botão de clipe ao lado, que pede os anexos.
 import { useState } from "react";
 import { toast } from "sonner";
-import { Download, Loader2, Plus, X } from "lucide-react";
+import { Download, Loader2, Paperclip, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import type { RevisitaDados, RevisitaFormato } from "@/lib/revisita-template";
 
 function normalizar(s: string): string {
@@ -61,17 +61,24 @@ export function BaixarPdfButton({
   const [tabelaResgatePdf, setTabelaResgatePdf] = useState<File | null>(null);
   const [apresentacaoPdfs, setApresentacaoPdfs] = useState<(File | null)[]>([null]);
   const [baixando, setBaixando] = useState(false);
+  const iconeClasse = size === "sm" ? "size-3.5" : "size-4";
 
   const temLinhaResgateAtiva = dados.coberturas.some((c) => normalizar(c.titulo).includes("resgate") && !(c.atualSemCobertura && c.novoSemCobertura));
   const apolicesValidas = apolicePdfs.filter((f): f is File => !!f);
   const apresentacoesValidas = apresentacaoPdfs.filter((f): f is File => !!f);
 
-  const handleBaixar = async () => {
+  const baixar = async (anexos: boolean) => {
     setBaixando(true);
     try {
       const { baixarRevisitaPdf } = await import("@/lib/revisita-pdf");
-      await baixarRevisitaPdf({ apolices: apolicesValidas, tabelaResgate: tabelaResgatePdf, apresentacoes: apresentacoesValidas, dados, formato });
-      setAberto(false);
+      await baixarRevisitaPdf({
+        apolices: anexos ? apolicesValidas : [],
+        tabelaResgate: anexos ? tabelaResgatePdf : null,
+        apresentacoes: anexos ? apresentacoesValidas : [],
+        dados,
+        formato,
+      });
+      if (anexos) setAberto(false);
     } catch (err) {
       toast.error("Não foi possível gerar o PDF.", { description: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -81,9 +88,20 @@ export function BaixarPdfButton({
 
   return (
     <>
-      <Button type="button" variant={variant} size={size} onClick={() => setAberto(true)}>
-        <Download className={size === "sm" ? "size-3.5" : "size-4"} />
-        Baixar PDF
+      <Button type="button" variant={variant} size={size} onClick={() => baixar(false)} disabled={baixando}>
+        {baixando && !aberto ? <Loader2 className={cn("animate-spin", iconeClasse)} /> : <Download className={iconeClasse} />}
+        {baixando && !aberto ? "Gerando..." : "Baixar PDF"}
+      </Button>
+      <Button
+        type="button"
+        variant={variant}
+        size={size === "sm" ? "sm" : "icon"}
+        onClick={() => setAberto(true)}
+        disabled={baixando}
+        title="Baixar PDF completo, incluindo apólice e anexos"
+        aria-label="Baixar PDF completo, incluindo apólice e anexos"
+      >
+        <Paperclip className={iconeClasse} />
       </Button>
 
       <Dialog open={aberto} onOpenChange={setAberto}>
@@ -92,7 +110,7 @@ export function BaixarPdfButton({
             <DialogTitle>Baixar PDF completo</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Os arquivos originais não ficam salvos no sistema. Envie aqui o que quiser incluir — tudo é opcional; sem anexos, baixa só o quadro comparativo. Ordem do PDF final: apólice, tabela de resgate, apresentação da seguradora e comparativo.
+            Para o PDF só com o quadro comparativo, use o botão "Baixar PDF". Aqui você monta o PDF completo: os arquivos originais não ficam salvos no sistema, então envie o que quiser incluir (tudo é opcional). Ordem do PDF final: apólice, tabela de resgate, apresentação da seguradora e comparativo.
           </p>
           <div className="flex flex-col gap-2">
             <Rotulo>Apólice atual (opcional, PDF)</Rotulo>
@@ -112,7 +130,7 @@ export function BaixarPdfButton({
             <Button type="button" variant="outline" onClick={() => setAberto(false)}>
               Cancelar
             </Button>
-            <Button type="button" onClick={handleBaixar} disabled={baixando}>
+            <Button type="button" onClick={() => baixar(true)} disabled={baixando}>
               {baixando ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
               {baixando ? "Montando o PDF..." : "Baixar"}
             </Button>
