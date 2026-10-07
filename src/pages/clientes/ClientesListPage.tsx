@@ -66,7 +66,8 @@ import { hojeIso } from "@/lib/sitplan";
 import { APOLICE_STATUS, type ApoliceWithCoberturas, type ClienteWithRelations } from "@/lib/types";
 import { classificarTipoProduto, coberturaCorrespondeARotulo } from "@/lib/seguros-taxonomia";
 import { formatarData, formatarMoeda, formatarMoedaCompacta } from "@/lib/format";
-import { FAIXAS_VENCIMENTO, proximoVencimentoDoCliente, situacaoVencimento, vencimentoBateFaixa } from "@/lib/vencimentos";
+import { FAIXAS_VENCIMENTO, observacaoVencimentoDoCliente, proximoVencimentoDoCliente, vencimentoBateFaixa } from "@/lib/vencimentos";
+import { VencimentoCell } from "@/components/clientes/VencimentoCell";
 import { idadeAtualDetalhada } from "@/lib/aniversario";
 import { ETAPA_OPCOES, etapaInfo } from "@/lib/etapas";
 import { cn } from "@/lib/utils";
@@ -317,7 +318,8 @@ export function ClientesListPage() {
     }
     if (pular !== "vencimento" && vencimentoFiltro.size > 0) {
       const venc = proximoVencimentoDoCliente(c.apolices ?? []);
-      if (![...vencimentoFiltro].some((k) => vencimentoBateFaixa(venc, k))) return false;
+      const obs = observacaoVencimentoDoCliente(c.apolices ?? []);
+      if (![...vencimentoFiltro].some((k) => vencimentoBateFaixa(venc, k, obs))) return false;
     }
     return true;
   };
@@ -357,7 +359,11 @@ export function ClientesListPage() {
       arr.sort((a, b) => {
         const va = proximoVencimentoDoCliente(a.apolices ?? []);
         const vb = proximoVencimentoDoCliente(b.apolices ?? []);
-        if (va === vb) return 0;
+        if (va === vb) {
+          // Mesma data (ou ambos sem data): quem tem observação (ex.: em atraso) vem antes de quem não tem nada.
+          if (va) return 0;
+          return Number(!!observacaoVencimentoDoCliente(b.apolices ?? [])) - Number(!!observacaoVencimentoDoCliente(a.apolices ?? []));
+        }
         if (!va) return 1;
         if (!vb) return -1;
         return ordem.direcao === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
@@ -378,7 +384,7 @@ export function ClientesListPage() {
   };
 
   const contarFaixaVencimento = (key: string) =>
-    baseParaContarVencimento.filter((c) => vencimentoBateFaixa(proximoVencimentoDoCliente(c.apolices ?? []), key)).length;
+    baseParaContarVencimento.filter((c) => vencimentoBateFaixa(proximoVencimentoDoCliente(c.apolices ?? []), key, observacaoVencimentoDoCliente(c.apolices ?? []))).length;
 
   const toggleFaixaVencimento = (key: string) =>
     setVencimentoFiltro((s) => {
@@ -892,28 +898,8 @@ export function ClientesListPage() {
                         <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">mensal</span>
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatarMoeda(agg.capital)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-sm">
-                        {(() => {
-                          const venc = proximoVencimentoDoCliente(c.apolices ?? []);
-                          if (!venc) return <span className="text-muted-foreground">—</span>;
-                          const s = situacaoVencimento(venc);
-                          return (
-                            <>
-                              <span className="font-mono text-xs">{formatarData(venc)}</span>
-                              <span
-                                className={
-                                  s.situacao === "vencido"
-                                    ? "block text-[10px] font-semibold text-destructive"
-                                    : s.situacao === "hoje" || s.situacao === "breve"
-                                      ? "block text-[10px] font-semibold text-amber-600"
-                                      : "block text-[10px] text-muted-foreground"
-                                }
-                              >
-                                {s.texto}
-                              </span>
-                            </>
-                          );
-                        })()}
+                      <TableCell className="whitespace-nowrap text-sm" onClick={(e) => e.stopPropagation()}>
+                        <VencimentoCell cliente={c} />
                       </TableCell>
                       <TableCell className="text-sm">
                         {[c.cidade, c.uf].filter(Boolean).length > 0 ? (

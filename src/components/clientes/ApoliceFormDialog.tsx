@@ -50,6 +50,8 @@ export function ApoliceFormDialog({ open, onOpenChange, clienteId, apolice }: Pr
     data_emissao: "",
     vencimento_apolice: "",
     melhor_dia_pagamento: "",
+    proximo_vencimento_premio: "",
+    observacao_vencimento: "",
     premio_mensal_total: "",
     capital_segurado_total: "",
   });
@@ -64,6 +66,8 @@ export function ApoliceFormDialog({ open, onOpenChange, clienteId, apolice }: Pr
         data_emissao: apolice?.data_emissao ?? "",
         vencimento_apolice: apolice?.vencimento_apolice ?? "",
         melhor_dia_pagamento: apolice?.melhor_dia_pagamento != null ? String(apolice.melhor_dia_pagamento) : "",
+        proximo_vencimento_premio: apolice?.proximo_vencimento_premio ?? "",
+        observacao_vencimento: apolice?.observacao_vencimento ?? "",
         premio_mensal_total: apolice?.premio_mensal_total != null ? String(apolice.premio_mensal_total) : "",
         capital_segurado_total: apolice?.capital_segurado_total != null ? String(apolice.capital_segurado_total) : "",
       });
@@ -83,6 +87,10 @@ export function ApoliceFormDialog({ open, onOpenChange, clienteId, apolice }: Pr
       data_emissao: form.data_emissao || null,
       vencimento_apolice: form.vencimento_apolice || null,
       melhor_dia_pagamento: form.melhor_dia_pagamento ? Number(form.melhor_dia_pagamento) : null,
+      proximo_vencimento_premio: form.proximo_vencimento_premio || null,
+      observacao_vencimento: form.observacao_vencimento.trim() || null,
+      // Só marca a data da atualização quando o vencimento foi mexido neste cadastro.
+      ...((apolice?.proximo_vencimento_premio ?? "") !== form.proximo_vencimento_premio ? { vencimento_premio_atualizado_em: new Date().toISOString() } : {}),
       premio_mensal_total: paraNumero(form.premio_mensal_total),
       capital_segurado_total: paraNumero(form.capital_segurado_total),
     };
@@ -147,6 +155,12 @@ export function ApoliceFormDialog({ open, onOpenChange, clienteId, apolice }: Pr
             </Field>
             <Field label="Melhor dia de pagamento (1-31)" htmlFor="melhor_dia_pagamento">
               <Input id="melhor_dia_pagamento" type="number" min={1} max={31} value={form.melhor_dia_pagamento} onChange={(e) => set("melhor_dia_pagamento", e.target.value)} />
+            </Field>
+            <Field label="Próximo vencimento do prêmio" htmlFor="proximo_vencimento_premio">
+              <Input id="proximo_vencimento_premio" type="date" value={form.proximo_vencimento_premio} onChange={(e) => set("proximo_vencimento_premio", e.target.value)} />
+            </Field>
+            <Field label="Observação do vencimento" htmlFor="observacao_vencimento">
+              <Input id="observacao_vencimento" value={form.observacao_vencimento} onChange={(e) => set("observacao_vencimento", e.target.value)} placeholder="Ex.: EM ATRASO" />
             </Field>
             <Field label="Prêmio mensal total" htmlFor="premio_mensal_total">
               <Input id="premio_mensal_total" inputMode="decimal" value={form.premio_mensal_total} onChange={(e) => set("premio_mensal_total", e.target.value)} placeholder={formatarMoeda(0)} />

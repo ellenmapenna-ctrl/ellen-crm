@@ -3379,6 +3379,7 @@ export type Database = {
           forma_pagamento: string | null
           responsavel_pagamento: string | null
           vencimento_premio_atualizado_em: string | null
+          observacao_vencimento: string | null
         }
         Insert: {
           capital_segurado_total?: number | null
@@ -3398,6 +3399,7 @@ export type Database = {
           forma_pagamento?: string | null
           responsavel_pagamento?: string | null
           vencimento_premio_atualizado_em?: string | null
+          observacao_vencimento?: string | null
         }
         Update: {
           capital_segurado_total?: number | null
@@ -3417,6 +3419,7 @@ export type Database = {
           forma_pagamento?: string | null
           responsavel_pagamento?: string | null
           vencimento_premio_atualizado_em?: string | null
+          observacao_vencimento?: string | null
         }
         Relationships: [
           {

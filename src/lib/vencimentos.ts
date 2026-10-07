@@ -147,6 +147,12 @@ export function proximoVencimentoDoCliente(apolices: { status: string; proximo_v
   return datas[0] ?? null;
 }
 
+/** Observações manuais (ex.: "EM ATRASO") das apólices ativas do cliente, sem repetir, ou null. */
+export function observacaoVencimentoDoCliente(apolices: { status: string; observacao_vencimento?: string | null }[]): string | null {
+  const obs = [...new Set(apolices.filter((a) => a.status === "ativa").map((a) => (a.observacao_vencimento ?? "").trim()).filter(Boolean))];
+  return obs.length > 0 ? obs.join(" · ") : null;
+}
+
 export type SituacaoVencimento = "vencido" | "hoje" | "breve" | "futuro";
 
 /** Quantos dias faltam (negativo = já passou) e a situação para colorir o destaque. */
@@ -163,11 +169,13 @@ export const FAIXAS_VENCIMENTO = [
   { key: "hoje", label: "Vence hoje" },
   { key: "7dias", label: "Próximos 7 dias" },
   { key: "30dias", label: "Próximos 30 dias" },
+  { key: "obs", label: "Com observação (ex.: em atraso)" },
   { key: "sem", label: "Sem vencimento informado" },
 ] as const;
 
-export function vencimentoBateFaixa(vencimentoIso: string | null, faixa: string): boolean {
-  if (faixa === "sem") return vencimentoIso === null;
+export function vencimentoBateFaixa(vencimentoIso: string | null, faixa: string, observacao: string | null = null): boolean {
+  if (faixa === "obs") return !!observacao;
+  if (faixa === "sem") return vencimentoIso === null && !observacao;
   if (!vencimentoIso) return false;
   const dias = diasEntreIso(hojeIso(), vencimentoIso);
   if (faixa === "vencido") return dias < 0;
