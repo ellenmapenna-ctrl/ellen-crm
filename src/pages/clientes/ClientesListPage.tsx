@@ -18,6 +18,7 @@ import {
   Upload,
   Users,
 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared/Feedback";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -65,6 +66,7 @@ import { hojeIso } from "@/lib/sitplan";
 import { APOLICE_STATUS, type ApoliceWithCoberturas, type ClienteWithRelations } from "@/lib/types";
 import { classificarTipoProduto, coberturaCorrespondeARotulo } from "@/lib/seguros-taxonomia";
 import { formatarData, formatarMoeda, formatarMoedaCompacta } from "@/lib/format";
+import { FAIXAS_VENCIMENTO, proximoVencimentoDoCliente, situacaoVencimento, vencimentoBateFaixa } from "@/lib/vencimentos";
 import { idadeAtualDetalhada } from "@/lib/aniversario";
 import { ETAPA_OPCOES, etapaInfo } from "@/lib/etapas";
 import { cn } from "@/lib/utils";
@@ -186,7 +188,7 @@ function clienteAtendeChip(cliente: ClienteWithRelations, chip: ChipKey, hoje: D
   }
 }
 
-type CampoOrdem = "premio" | "idade";
+type CampoOrdem = "premio" | "idade" | "vencimento";
 
 export function ClientesListPage() {
   const navigate = useNavigate();
@@ -204,6 +206,7 @@ export function ClientesListPage() {
   const [oportunidades, setOportunidades] = useState<Set<ChipKey>>(new Set());
   const [premioFiltro, setPremioFiltro] = useState<Set<string>>(new Set());
   const [idadeFiltro, setIdadeFiltro] = useState<Set<string>>(new Set());
+  const [vencimentoFiltro, setVencimentoFiltro] = useState<Set<string>>(new Set());
   const [ordem, setOrdem] = useState<{ campo: CampoOrdem; direcao: "asc" | "desc" } | null>(null);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -284,7 +287,7 @@ export function ClientesListPage() {
   const passaFiltrosGerais = (
     c: ClienteWithRelations,
     hoje: Date,
-    pular?: "premio" | "idade"
+    pular?: "premio" | "idade" | "vencimento"
   ): boolean => {
     if (busca.trim()) {
       const termo = busca.trim().toLowerCase();
@@ -312,6 +315,10 @@ export function ClientesListPage() {
       const bate = [...idadeFiltro].some((k) => clienteBateFaixaIdade(c, k));
       if (!bate) return false;
     }
+    if (pular !== "vencimento" && vencimentoFiltro.size > 0) {
+      const venc = proximoVencimentoDoCliente(c.apolices ?? []);
+      if (![...vencimentoFiltro].some((k) => vencimentoBateFaixa(venc, k))) return false;
+    }
     return true;
   };
 
@@ -319,24 +326,44 @@ export function ClientesListPage() {
     if (!clientes) return [];
     const hoje = hojeSemHora();
     return clientes.filter((c) => passaFiltrosGerais(c, hoje));
-  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, idadeFiltro, agregar]);
+  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, idadeFiltro, vencimentoFiltro, agregar]);
 
   /** Base para contar as faixas de Prêmio no popover, ignorando o próprio filtro de prêmio (senão marcar uma faixa zeraria a contagem das outras). */
   const baseParaContarPremio = useMemo(() => {
     if (!clientes) return [];
     const hoje = hojeSemHora();
     return clientes.filter((c) => passaFiltrosGerais(c, hoje, "premio"));
-  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, idadeFiltro, agregar]);
+  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, idadeFiltro, vencimentoFiltro, agregar]);
 
   /** Idem, para Idade. */
   const baseParaContarIdade = useMemo(() => {
     if (!clientes) return [];
     const hoje = hojeSemHora();
     return clientes.filter((c) => passaFiltrosGerais(c, hoje, "idade"));
-  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, agregar]);
+  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, vencimentoFiltro, agregar]);
+
+  /** Idem, para Próx. vencimento. */
+  const baseParaContarVencimento = useMemo(() => {
+    if (!clientes) return [];
+    const hoje = hojeSemHora();
+    return clientes.filter((c) => passaFiltrosGerais(c, hoje, "vencimento"));
+  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, idadeFiltro, agregar]);
 
   const filtradosOrdenados = useMemo(() => {
     if (!ordem) return filtrados;
+    if (ordem.campo === "vencimento") {
+      // Sem vencimento informado vai sempre para o fim, qualquer que seja a direção.
+      const arr = [...filtrados];
+      arr.sort((a, b) => {
+        const va = proximoVencimentoDoCliente(a.apolices ?? []);
+        const vb = proximoVencimentoDoCliente(b.apolices ?? []);
+        if (va === vb) return 0;
+        if (!va) return 1;
+        if (!vb) return -1;
+        return ordem.direcao === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+      });
+      return arr;
+    }
     const valor = (c: ClienteWithRelations) =>
       ordem.campo === "premio" ? (agregar.get(c.id)?.premio ?? 0) : (idadeDoCliente(c) ?? -1);
     const arr = [...filtrados];
@@ -349,6 +376,25 @@ export function ClientesListPage() {
     if (!faixa) return 0;
     return baseParaContarPremio.filter((c) => faixa.teste(agregar.get(c.id)?.premio ?? 0)).length;
   };
+
+  const contarFaixaVencimento = (key: string) =>
+    baseParaContarVencimento.filter((c) => vencimentoBateFaixa(proximoVencimentoDoCliente(c.apolices ?? []), key)).length;
+
+  const toggleFaixaVencimento = (key: string) =>
+    setVencimentoFiltro((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  /** Clicar no título alterna: mais próximo primeiro → mais distante primeiro → sem ordenação. */
+  const alternarOrdemVencimento = () =>
+    setOrdem((o) => {
+      if (o?.campo !== "vencimento") return { campo: "vencimento", direcao: "asc" };
+      if (o.direcao === "asc") return { campo: "vencimento", direcao: "desc" };
+      return null;
+    });
 
   const contarFaixaIdade = (key: string) =>
     baseParaContarIdade.filter((c) => clienteBateFaixaIdade(c, key)).length;
@@ -766,6 +812,34 @@ export function ClientesListPage() {
                     </span>
                   </TableHead>
                   <TableHead className="text-right">Capital Segurado</TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={alternarOrdemVencimento}
+                        className="inline-flex items-center gap-1 whitespace-nowrap hover:text-foreground"
+                        title="Ordenar por próximo vencimento"
+                      >
+                        Próx. vencimento
+                        {ordem?.campo === "vencimento" ? (
+                          ordem.direcao === "asc" ? <ArrowUp className="size-3.5 text-primary" /> : <ArrowDown className="size-3.5 text-primary" />
+                        ) : (
+                          <ArrowUpDown className="size-3.5 text-muted-foreground/50" />
+                        )}
+                      </button>
+                      <ColumnFilterButton
+                        faixas={[...FAIXAS_VENCIMENTO]}
+                        selecionadas={vencimentoFiltro}
+                        onToggleFaixa={toggleFaixaVencimento}
+                        onLimpar={() => setVencimentoFiltro(new Set())}
+                        contarFaixa={contarFaixaVencimento}
+                        direcao={ordem?.campo === "vencimento" ? ordem.direcao : null}
+                        onOrdenar={(direcao) => setOrdem(direcao ? { campo: "vencimento", direcao } : null)}
+                        labelMaior="Mais distante"
+                        labelMenor="Mais próximo"
+                      />
+                    </span>
+                  </TableHead>
                   <TableHead>Local</TableHead>
                   <TableHead>
                     <span className="inline-flex items-center gap-1">
@@ -818,6 +892,29 @@ export function ClientesListPage() {
                         <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">mensal</span>
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatarMoeda(agg.capital)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-sm">
+                        {(() => {
+                          const venc = proximoVencimentoDoCliente(c.apolices ?? []);
+                          if (!venc) return <span className="text-muted-foreground">—</span>;
+                          const s = situacaoVencimento(venc);
+                          return (
+                            <>
+                              <span className="font-mono text-xs">{formatarData(venc)}</span>
+                              <span
+                                className={
+                                  s.situacao === "vencido"
+                                    ? "block text-[10px] font-semibold text-destructive"
+                                    : s.situacao === "hoje" || s.situacao === "breve"
+                                      ? "block text-[10px] font-semibold text-amber-600"
+                                      : "block text-[10px] text-muted-foreground"
+                                }
+                              >
+                                {s.texto}
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="text-sm">
                         {[c.cidade, c.uf].filter(Boolean).length > 0 ? (
                           <span className="flex items-center gap-1">

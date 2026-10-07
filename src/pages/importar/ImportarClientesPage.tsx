@@ -675,6 +675,9 @@ export function ImportarClientesPage() {
         <Button variant="outline" asChild>
           <Link to="/importar/capital">Atualizar capital das coberturas</Link>
         </Button>
+        <Button variant="outline" asChild>
+          <Link to="/importar/vencimentos">Importar vencimentos</Link>
+        </Button>
       </PageHeader>
 
       {/* Stepper */}

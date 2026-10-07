@@ -3375,6 +3375,10 @@ export type Database = {
           tipo_produto: string | null
           updated_at: string | null
           vencimento_apolice: string | null
+          proximo_vencimento_premio: string | null
+          forma_pagamento: string | null
+          responsavel_pagamento: string | null
+          vencimento_premio_atualizado_em: string | null
         }
         Insert: {
           capital_segurado_total?: number | null
@@ -3390,6 +3394,10 @@ export type Database = {
           tipo_produto?: string | null
           updated_at?: string | null
           vencimento_apolice?: string | null
+          proximo_vencimento_premio?: string | null
+          forma_pagamento?: string | null
+          responsavel_pagamento?: string | null
+          vencimento_premio_atualizado_em?: string | null
         }
         Update: {
           capital_segurado_total?: number | null
@@ -3405,6 +3413,10 @@ export type Database = {
           tipo_produto?: string | null
           updated_at?: string | null
           vencimento_apolice?: string | null
+          proximo_vencimento_premio?: string | null
+          forma_pagamento?: string | null
+          responsavel_pagamento?: string | null
+          vencimento_premio_atualizado_em?: string | null
         }
         Relationships: [
           {
