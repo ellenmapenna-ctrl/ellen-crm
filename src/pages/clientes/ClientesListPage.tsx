@@ -60,6 +60,8 @@ import { useClientes, useDeleteCliente, useUpdateCliente } from "@/hooks/useClie
 import { useMoverNoFunil } from "@/hooks/useFunilPosicoes";
 import { FUNIS, type FunilKey } from "@/lib/funis";
 import { useTags } from "@/hooks/useTags";
+import { useRevisitasResumo } from "@/hooks/useRevisitas";
+import { FAIXAS_REVISITA, haQuantoTempoRevisita, revisitaBateFaixa, ultimaRevisitaPorCliente } from "@/lib/ultima-revisita";
 import { useKanbanEstagios } from "@/hooks/useKanbanEstagios";
 import { useAddClientesAoSitPlan } from "@/hooks/useSitPlan";
 import { hojeIso } from "@/lib/sitplan";
@@ -189,7 +191,7 @@ function clienteAtendeChip(cliente: ClienteWithRelations, chip: ChipKey, hoje: D
   }
 }
 
-type CampoOrdem = "premio" | "idade" | "vencimento";
+type CampoOrdem = "premio" | "idade" | "vencimento" | "revisita";
 
 export function ClientesListPage() {
   const navigate = useNavigate();
@@ -208,6 +210,7 @@ export function ClientesListPage() {
   const [premioFiltro, setPremioFiltro] = useState<Set<string>>(new Set());
   const [idadeFiltro, setIdadeFiltro] = useState<Set<string>>(new Set());
   const [vencimentoFiltro, setVencimentoFiltro] = useState<Set<string>>(new Set());
+  const [revisitaFiltro, setRevisitaFiltro] = useState<Set<string>>(new Set());
   const [ordem, setOrdem] = useState<{ campo: CampoOrdem; direcao: "asc" | "desc" } | null>(null);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -236,6 +239,9 @@ export function ClientesListPage() {
     }
     return mapa;
   }, [clientes]);
+
+  const { data: revisitasResumo } = useRevisitasResumo();
+  const ultimaRevisita = useMemo(() => ultimaRevisitaPorCliente(clientes ?? [], revisitasResumo ?? []), [clientes, revisitasResumo]);
 
   /** KPIs sobre a base completa da carteira — não são afetados pelos filtros de busca/tag/status/oportunidade da tabela abaixo. */
   const kpis = useMemo(() => {
@@ -288,7 +294,7 @@ export function ClientesListPage() {
   const passaFiltrosGerais = (
     c: ClienteWithRelations,
     hoje: Date,
-    pular?: "premio" | "idade" | "vencimento"
+    pular?: "premio" | "idade" | "vencimento" | "revisita"
   ): boolean => {
     if (busca.trim()) {
       const termo = busca.trim().toLowerCase();
@@ -321,6 +327,10 @@ export function ClientesListPage() {
       const obs = observacaoVencimentoDoCliente(c.apolices ?? []);
       if (![...vencimentoFiltro].some((k) => vencimentoBateFaixa(venc, k, obs))) return false;
     }
+    if (pular !== "revisita" && revisitaFiltro.size > 0) {
+      const ult = ultimaRevisita.get(c.id) ?? null;
+      if (![...revisitaFiltro].some((k) => revisitaBateFaixa(ult, k))) return false;
+    }
     return true;
   };
 
@@ -328,31 +338,51 @@ export function ClientesListPage() {
     if (!clientes) return [];
     const hoje = hojeSemHora();
     return clientes.filter((c) => passaFiltrosGerais(c, hoje));
-  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, idadeFiltro, vencimentoFiltro, agregar]);
+  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, idadeFiltro, vencimentoFiltro, revisitaFiltro, ultimaRevisita, agregar]);
 
   /** Base para contar as faixas de Prêmio no popover, ignorando o próprio filtro de prêmio (senão marcar uma faixa zeraria a contagem das outras). */
   const baseParaContarPremio = useMemo(() => {
     if (!clientes) return [];
     const hoje = hojeSemHora();
     return clientes.filter((c) => passaFiltrosGerais(c, hoje, "premio"));
-  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, idadeFiltro, vencimentoFiltro, agregar]);
+  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, idadeFiltro, vencimentoFiltro, revisitaFiltro, ultimaRevisita, agregar]);
 
   /** Idem, para Idade. */
   const baseParaContarIdade = useMemo(() => {
     if (!clientes) return [];
     const hoje = hojeSemHora();
     return clientes.filter((c) => passaFiltrosGerais(c, hoje, "idade"));
-  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, vencimentoFiltro, agregar]);
+  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, vencimentoFiltro, revisitaFiltro, ultimaRevisita, agregar]);
 
   /** Idem, para Próx. vencimento. */
   const baseParaContarVencimento = useMemo(() => {
     if (!clientes) return [];
     const hoje = hojeSemHora();
     return clientes.filter((c) => passaFiltrosGerais(c, hoje, "vencimento"));
-  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, idadeFiltro, agregar]);
+  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, idadeFiltro, revisitaFiltro, ultimaRevisita, agregar]);
+
+  /** Idem, para Última revisita. */
+  const baseParaContarRevisita = useMemo(() => {
+    if (!clientes) return [];
+    const hoje = hojeSemHora();
+    return clientes.filter((c) => passaFiltrosGerais(c, hoje, "revisita"));
+  }, [clientes, busca, tagsFiltro, statusFiltro, oportunidades, premioFiltro, idadeFiltro, vencimentoFiltro, ultimaRevisita, agregar]);
 
   const filtradosOrdenados = useMemo(() => {
     if (!ordem) return filtrados;
+    if (ordem.campo === "revisita") {
+      // Quem nunca foi revisitado vai sempre para o fim, qualquer que seja a direção.
+      const arr = [...filtrados];
+      arr.sort((a, b) => {
+        const va = ultimaRevisita.get(a.id) ?? null;
+        const vb = ultimaRevisita.get(b.id) ?? null;
+        if (va === vb) return 0;
+        if (!va) return 1;
+        if (!vb) return -1;
+        return ordem.direcao === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+      });
+      return arr;
+    }
     if (ordem.campo === "vencimento") {
       // Sem vencimento informado vai sempre para o fim, qualquer que seja a direção.
       const arr = [...filtrados];
@@ -375,7 +405,7 @@ export function ClientesListPage() {
     const arr = [...filtrados];
     arr.sort((a, b) => (ordem.direcao === "asc" ? valor(a) - valor(b) : valor(b) - valor(a)));
     return arr;
-  }, [filtrados, ordem, agregar]);
+  }, [filtrados, ordem, agregar, ultimaRevisita]);
 
   const contarFaixaPremio = (key: string) => {
     const faixa = PREMIO_FAIXAS.find((f) => f.key === key);
@@ -399,6 +429,24 @@ export function ClientesListPage() {
     setOrdem((o) => {
       if (o?.campo !== "vencimento") return { campo: "vencimento", direcao: "asc" };
       if (o.direcao === "asc") return { campo: "vencimento", direcao: "desc" };
+      return null;
+    });
+
+  const contarFaixaRevisita = (key: string) => baseParaContarRevisita.filter((c) => revisitaBateFaixa(ultimaRevisita.get(c.id) ?? null, key)).length;
+
+  const toggleFaixaRevisita = (key: string) =>
+    setRevisitaFiltro((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  /** Clicar no título alterna: mais recente primeiro → mais antiga primeiro → sem ordenação. */
+  const alternarOrdemRevisita = () =>
+    setOrdem((o) => {
+      if (o?.campo !== "revisita") return { campo: "revisita", direcao: "desc" };
+      if (o.direcao === "desc") return { campo: "revisita", direcao: "asc" };
       return null;
     });
 
@@ -846,6 +894,34 @@ export function ClientesListPage() {
                       />
                     </span>
                   </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={alternarOrdemRevisita}
+                        className="inline-flex items-center gap-1 whitespace-nowrap hover:text-foreground"
+                        title="Ordenar por última revisita"
+                      >
+                        Última revisita
+                        {ordem?.campo === "revisita" ? (
+                          ordem.direcao === "desc" ? <ArrowDown className="size-3.5 text-primary" /> : <ArrowUp className="size-3.5 text-primary" />
+                        ) : (
+                          <ArrowUpDown className="size-3.5 text-muted-foreground/50" />
+                        )}
+                      </button>
+                      <ColumnFilterButton
+                        faixas={[...FAIXAS_REVISITA]}
+                        selecionadas={revisitaFiltro}
+                        onToggleFaixa={toggleFaixaRevisita}
+                        onLimpar={() => setRevisitaFiltro(new Set())}
+                        contarFaixa={contarFaixaRevisita}
+                        direcao={ordem?.campo === "revisita" ? ordem.direcao : null}
+                        onOrdenar={(direcao) => setOrdem(direcao ? { campo: "revisita", direcao } : null)}
+                        labelMaior="Mais recente"
+                        labelMenor="Mais antiga"
+                      />
+                    </span>
+                  </TableHead>
                   <TableHead>Local</TableHead>
                   <TableHead>
                     <span className="inline-flex items-center gap-1">
@@ -900,6 +976,18 @@ export function ClientesListPage() {
                       <TableCell className="text-right font-mono text-xs">{formatarMoeda(agg.capital)}</TableCell>
                       <TableCell className="whitespace-nowrap text-sm" onClick={(e) => e.stopPropagation()}>
                         <VencimentoCell cliente={c} />
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm">
+                        {(() => {
+                          const ult = ultimaRevisita.get(c.id);
+                          if (!ult) return <span className="text-muted-foreground">—</span>;
+                          return (
+                            <>
+                              <span className="font-mono text-xs">{formatarData(ult)}</span>
+                              <span className="block text-[10px] text-muted-foreground">{haQuantoTempoRevisita(ult)}</span>
+                            </>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-sm">
                         {[c.cidade, c.uf].filter(Boolean).length > 0 ? (

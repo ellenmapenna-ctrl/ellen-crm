@@ -37,6 +37,7 @@ export const qk = {
   revisitas: {
     all: ["revisitas"] as const,
     list: () => ["revisitas", "list"] as const,
+    resumo: () => ["revisitas", "resumo"] as const,
     detail: (id: string) => ["revisitas", "detail", id] as const,
   },
   aniversariantes: (dias: number) => ["aniversariantes", dias] as const,

@@ -28,6 +28,18 @@ export function useRevisitas() {
   });
 }
 
+/** Só cliente e data de cada revisita (sem o HTML pesado): alimenta a "Última revisita" da lista de clientes. */
+export function useRevisitasResumo() {
+  return useQuery({
+    queryKey: qk.revisitas.resumo(),
+    queryFn: async () => {
+      const { data, error } = await supabase.from("revisitas").select("cliente_id, cliente_nome, created_at").order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as { cliente_id: string | null; cliente_nome: string; created_at: string | null }[];
+    },
+  });
+}
+
 export function useRevisita(id: string | undefined) {
   return useQuery({
     queryKey: qk.revisitas.detail(id ?? ""),

@@ -49,6 +49,8 @@ import { FUNIS } from "@/lib/funis";
 import { useTags, useAddTagToCliente, useRemoveTagFromCliente } from "@/hooks/useTags";
 import { COBERTURAS_CANONICAS, RIDERS_INCLUSOS, coberturaCorrespondeARotulo, ehCoberturaBase } from "@/lib/seguros-taxonomia";
 import { diaDoVencimento, proximoVencimentoDoCliente } from "@/lib/vencimentos";
+import { useRevisitasResumo } from "@/hooks/useRevisitas";
+import { haQuantoTempoRevisita, ultimaRevisitaPorCliente } from "@/lib/ultima-revisita";
 import type { Apolice, ApoliceWithCoberturas, Cobertura } from "@/lib/types";
 import { formatarData, formatarMoeda, paraNumero } from "@/lib/format";
 import { idadeAtualDetalhada } from "@/lib/aniversario";
@@ -146,6 +148,11 @@ export function ClienteDetailPage() {
   const naoContratadas = useMemo(() => contarNaoContratadas(apolicesAtivas), [apolicesAtivas]);
   const proximaApolice = useMemo(() => apoliceProximoVencimento(apolicesData ?? []), [apolicesData]);
   const diaVencimento = useMemo(() => diaDoVencimento(proximoVencimentoDoCliente(apolicesData ?? [])), [apolicesData]);
+  const { data: revisitasResumo } = useRevisitasResumo();
+  const ultimaRevisita = useMemo(
+    () => (cliente ? (ultimaRevisitaPorCliente([{ id: cliente.id, nome_completo: cliente.nome_completo }], revisitasResumo ?? []).get(cliente.id) ?? null) : null),
+    [cliente, revisitasResumo],
+  );
   const idade = idadeAtualDetalhada(cliente?.data_nascimento);
 
   const tagsDoCliente = useMemo(
@@ -275,7 +282,7 @@ export function ClienteDetailPage() {
               </>
             )}
           </div>
-          {(diaVencimento || proximaApolice?.melhor_dia_pagamento) && (
+          {(diaVencimento || proximaApolice?.melhor_dia_pagamento || ultimaRevisita) && (
             <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground">
               {diaVencimento && (
                 <span>Dia de vencimento <strong className="text-foreground">{diaVencimento}</strong></span>
@@ -283,6 +290,15 @@ export function ClienteDetailPage() {
               {diaVencimento && proximaApolice?.melhor_dia_pagamento && <span className="text-border">·</span>}
               {proximaApolice?.melhor_dia_pagamento && (
                 <span>Melhor Dia <strong className="text-foreground">{proximaApolice.melhor_dia_pagamento}</strong></span>
+              )}
+              {ultimaRevisita && (
+                <>
+                  {(diaVencimento || proximaApolice?.melhor_dia_pagamento) && <span className="text-border">·</span>}
+                  <span>
+                    Última revisita <strong className="text-foreground">{formatarData(ultimaRevisita)}</strong>{" "}
+                    <span className="text-xs">({haQuantoTempoRevisita(ultimaRevisita)})</span>
+                  </span>
+                </>
               )}
             </div>
           )}
