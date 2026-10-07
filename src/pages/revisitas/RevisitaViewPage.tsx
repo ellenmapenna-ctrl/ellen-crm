@@ -4,6 +4,7 @@ import { LoadingState, ErrorState } from "@/components/shared/Feedback";
 import { Button } from "@/components/ui/button";
 import { useRevisita } from "@/hooks/useRevisitas";
 import { BaixarPdfButton } from "./BaixarPdfButton";
+import { BaixarPdfReuniaoButton } from "./BaixarPdfReuniaoButton";
 import type { RevisitaFormato } from "@/lib/revisita-template";
 
 function detectarFormato(html: string): RevisitaFormato {
@@ -30,6 +31,7 @@ export function RevisitaViewPage() {
             Editar
           </Button>
           <BaixarPdfButton dados={data.dados} formato={detectarFormato(data.html)} />
+          <BaixarPdfReuniaoButton dados={data.dados} formato={detectarFormato(data.html)} clienteId={data.cliente_id} />
         </div>
       </div>
       <iframe title={`Revisita — ${data.cliente_nome}`} srcDoc={data.html} className="w-full flex-1 border-0" />

@@ -36,6 +36,10 @@ export interface RevisitaDados {
   observacoes?: string;
   recomendacaoHeadline?: string;
   recomendacaoTexto?: string;
+  /** Apólices do sistema usadas como "apólice atual" (ids em `apolices`) — alimenta o espelho do PDF reunião. */
+  apolicesSistemaIds?: string[];
+  /** Chaves das apresentações de seguradora escolhidas (ver src/lib/apresentacoes.ts). */
+  apresentacoes?: string[];
 }
 
 function escapeHtml(s: string): string {

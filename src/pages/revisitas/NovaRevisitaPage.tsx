@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ApolicesAtuaisSeletor } from "@/components/revisitas/ApolicesAtuaisSeletor";
+import { ApresentacaoSeletor } from "@/components/revisitas/ApresentacaoSeletor";
 import { useCliente, useClientes } from "@/hooks/useClientes";
 import { buscarPrevidenciaPdfBase64, usePrevidenciaEstudoInfo } from "@/hooks/usePrevidenciaEstudo";
 import { useCriarRevisita } from "@/hooks/useRevisitas";
@@ -133,6 +134,7 @@ export function NovaRevisitaPage() {
   const [tabelaResgatePdf, setTabelaResgatePdf] = useState<File | null>(null);
   const [previdenciaPdf, setPrevidenciaPdf] = useState<File | null>(null);
   const [trocarPrevidencia, setTrocarPrevidencia] = useState(false);
+  const [apresentacoesEscolhidas, setApresentacoesEscolhidas] = useState<string[]>([]);
   const [apolicesSelecionadas, setApolicesSelecionadas] = useState<string[]>([]);
   const [usarPdfApolice, setUsarPdfApolice] = useState(false);
   const { data: clienteDetalhe } = useCliente(clienteId || undefined);
@@ -326,7 +328,7 @@ export function NovaRevisitaPage() {
       await criar.mutateAsync({
         clienteId: clienteId || null,
         clienteNome,
-        dados: { ...dados, clienteNome },
+        dados: { ...dados, clienteNome, apresentacoes: apresentacoesEscolhidas, apolicesSistemaIds: apolicesSelecionadas },
         html: html ?? renderRevisitaHtml({ ...dados, clienteNome }, formato),
         instrucoesExtras: instrucoesExtras.trim() || null,
       });
@@ -717,8 +719,11 @@ export function NovaRevisitaPage() {
 
           <Secao titulo="Apresentação da seguradora">
             <p className="-mt-2 mb-4 text-xs text-muted-foreground">
-              Opcional — o PDF enviado entra no arquivo final depois da tabela de resgate e antes do Comparative Board. Não fica salvo no sistema: vale só pro "Baixar PDF".
+              Escolha uma apresentação pronta no botão abaixo: ela fica salva com a revisita e entra no "Baixar PDF reunião", depois da apólice atual e antes da comparação. Você também pode enviar um PDF próprio (opcional): esse vale só pro "Baixar PDF" desta tela e não fica salvo.
             </p>
+            <div className="mb-4">
+              <ApresentacaoSeletor value={apresentacoesEscolhidas} onChange={setApresentacoesEscolhidas} />
+            </div>
             <div className="flex flex-col gap-2">
               {apresentacaoPdfs.map((_, i) => (
                 <div key={i} className="flex items-center gap-2">

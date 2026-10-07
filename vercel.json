@@ -10,10 +10,19 @@
     },
     "api/baixar-previdencia-pdf.ts": {
       "maxDuration": 60
+    },
+    "api/gerar-apolice-pdf.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }

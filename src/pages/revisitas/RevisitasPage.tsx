@@ -13,6 +13,7 @@ import { useRevisitas, useDuplicarRevisita, useExcluirRevisita, type RevisitaRow
 import { REVISITAS } from "@/lib/revisitas";
 import { abrirWhatsapp } from "@/lib/whatsapp";
 import { BaixarPdfButton } from "./BaixarPdfButton";
+import { BaixarPdfReuniaoButton } from "./BaixarPdfReuniaoButton";
 import type { RevisitaFormato } from "@/lib/revisita-template";
 
 function detectarFormato(html: string): RevisitaFormato {
@@ -130,8 +131,8 @@ export function RevisitasPage() {
 
       <div className="flex flex-col gap-2">
         {itens.map((item) => (
-          <Card key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-            <div>
+          <Card key={item.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 p-4">
+            <div className="min-w-0 flex-1 basis-56">
               <p className="font-medium">{item.clienteNome}</p>
               <p className="text-xs text-muted-foreground">{item.resumo}</p>
               <div className="mt-1 flex items-center gap-2">
@@ -139,7 +140,7 @@ export function RevisitasPage() {
                 {!item.celular && <Badge variant="outline">Cliente não encontrado na carteira</Badge>}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
               <Button size="sm" variant="outline" onClick={item.abrir}>
                 <ExternalLink className="size-3.5" />
                 Abrir
@@ -160,6 +161,7 @@ export function RevisitasPage() {
               {item.linha && (
                 <>
                   <BaixarPdfButton size="sm" variant="ghost" dados={item.linha.dados} formato={detectarFormato(item.linha.html)} />
+                  <BaixarPdfReuniaoButton size="sm" variant="ghost" dados={item.linha.dados} formato={detectarFormato(item.linha.html)} clienteId={item.linha.cliente_id} />
                   <Button size="sm" variant="ghost" onClick={() => navigate(`/revisitas/${item.linha!.id}/editar`)}>
                     <Pencil className="size-3.5" />
                     Editar
