@@ -25,3 +25,22 @@ export const SUGESTOES_COBERTURA = [
 ];
 
 export const SEGURADORAS = ["Prudential", "MAG", "Azos", "Icatu", "Metlife", "SulAmerica", "Porto Seguro", "Allianz", "Omint"];
+
+/** "Azos + Icatu" → ["Azos", "Icatu"]. */
+export function listarSeguradoras(valor: string): string[] {
+  return valor
+    .split("+")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+/** ["Azos", "Icatu"] → "Azos + Icatu" (formato usado no documento e pela leitura da IA). */
+export function juntarSeguradoras(lista: string[]): string {
+  return lista.join(" + ");
+}
+
+/** Opções para escolher a seguradora dos textos padrão de uma cobertura: as da revisita primeiro, depois as demais conhecidas. */
+export function opcoesSeguradora(valor: string): string[] {
+  const doLado = listarSeguradoras(valor);
+  return [...doLado, ...SEGURADORAS.filter((s) => !doLado.some((d) => d.toLowerCase() === s.toLowerCase()))];
+}

@@ -10,7 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useRevisita, useAtualizarRevisita } from "@/hooks/useRevisitas";
 import { cn } from "@/lib/utils";
-import { SEGURADORAS, SUGESTOES_COBERTURA } from "@/lib/revisita-opcoes";
+import { opcoesSeguradora, SUGESTOES_COBERTURA } from "@/lib/revisita-opcoes";
+import { SeguradorasField } from "@/components/revisitas/SeguradorasField";
 import { buscarDetalhesCatalogo } from "@/lib/catalogo-revisita";
 import { renderRevisitaHtml, type RevisitaCobertura, type RevisitaDados, type RevisitaFormato, type RevisitaPremioLinha } from "@/lib/revisita-template";
 import { BaixarPdfButton } from "./BaixarPdfButton";
@@ -211,12 +212,15 @@ export function EditarRevisitaPage() {
                 <Rotulo>Data de nascimento</Rotulo>
                 <Input placeholder="DD/MM/AAAA" value={dados.nascimento ?? ""} onChange={(e) => atualizarCampo("nascimento", e.target.value)} />
               </div>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Rotulo>Seguradora atual / nova</Rotulo>
-                <div className="flex gap-2">
-                  <Input value={dados.seguradoraAtual} onChange={(e) => atualizarCampo("seguradoraAtual", e.target.value)} />
-                  <Input value={dados.seguradoraNova} onChange={(e) => atualizarCampo("seguradoraNova", e.target.value)} />
-                </div>
+                <Rotulo>Seguradora atual</Rotulo>
+                <SeguradorasField value={dados.seguradoraAtual} onChange={(v) => atualizarCampo("seguradoraAtual", v)} />
+              </div>
+              <div>
+                <Rotulo>Seguradoras novas (pode ser mais de uma)</Rotulo>
+                <SeguradorasField value={dados.seguradoraNova} onChange={(v) => atualizarCampo("seguradoraNova", v)} rotuloAdicionar="Adicionar outra seguradora" />
               </div>
             </div>
           </Secao>
@@ -250,14 +254,13 @@ export function EditarRevisitaPage() {
                       <Rotulo>Formatação atual</Rotulo>
                       <select
                         className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
-                        value={dados.seguradoraAtual}
+                        value=""
                         onChange={(e) => {
-                          atualizarCampo("seguradoraAtual", e.target.value);
-                          selecionarSeguradora(idx, "atual", e.target.value);
+                          if (e.target.value) selecionarSeguradora(idx, "atual", e.target.value);
                         }}
                       >
-                        <option value="">Selecione a seguradora</option>
-                        {SEGURADORAS.map((s) => (
+                        <option value="">Usar textos padrão de…</option>
+                        {opcoesSeguradora(dados.seguradoraAtual).map((s) => (
                           <option key={s} value={s}>
                             {s}
                           </option>
@@ -268,14 +271,13 @@ export function EditarRevisitaPage() {
                       <Rotulo>Nova formatação</Rotulo>
                       <select
                         className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
-                        value={dados.seguradoraNova}
+                        value=""
                         onChange={(e) => {
-                          atualizarCampo("seguradoraNova", e.target.value);
-                          selecionarSeguradora(idx, "novo", e.target.value);
+                          if (e.target.value) selecionarSeguradora(idx, "novo", e.target.value);
                         }}
                       >
-                        <option value="">Selecione a seguradora</option>
-                        {SEGURADORAS.map((s) => (
+                        <option value="">Usar textos padrão de…</option>
+                        {opcoesSeguradora(dados.seguradoraNova).map((s) => (
                           <option key={s} value={s}>
                             {s}
                           </option>
