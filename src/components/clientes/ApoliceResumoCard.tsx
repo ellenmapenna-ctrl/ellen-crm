@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatarData, formatarMoeda, paraNumero } from "@/lib/format";
 import { idadeAtualDetalhada } from "@/lib/aniversario";
 import { abrirWhatsapp } from "@/lib/whatsapp";
-import { COBERTURAS_CANONICAS, RIDERS_INCLUSOS, coberturaCorrespondeARotulo } from "@/lib/seguros-taxonomia";
+import { COBERTURAS_CANONICAS, RIDERS_INCLUSOS, coberturaCorrespondeARotulo, ehCoberturaBase } from "@/lib/seguros-taxonomia";
 import type { ApoliceWithCoberturas, Cliente, Cobertura } from "@/lib/types";
 
 interface Props {
@@ -46,7 +46,7 @@ function anoDe(dataIso: string | null | undefined): string | null {
  */
 function montarLinhasEspelho(coberturas: Cobertura[]): { fixas: LinhaEspelho[]; extras: LinhaEspelho[] } {
   const usadas = new Set<string>();
-  const basicaAtiva = coberturas.find((c) => c.tipo === "base" && c.status === "ativa");
+  const basicaAtiva = coberturas.find((c) => ehCoberturaBase(c) && c.status === "ativa");
   const capitalBasica = basicaAtiva ? paraNumero(basicaAtiva.capital_segurado) : 0;
 
   const fixas = COBERTURAS_CANONICAS.map(({ rotulo }) => {
@@ -86,9 +86,9 @@ export function ApoliceResumoCard({ cliente, apolice }: Props) {
   const todasLinhas = [...fixas, ...extras];
 
   const subtotalOpcionais = coberturas
-    .filter((c) => c.tipo === "opcional" && c.status === "ativa")
+    .filter((c) => !ehCoberturaBase(c) && c.status === "ativa")
     .reduce((soma, c) => soma + paraNumero(c.premio_mensal), 0);
-  const temOpcionais = coberturas.some((c) => c.tipo === "opcional");
+  const temOpcionais = coberturas.some((c) => !ehCoberturaBase(c));
 
   const idade = idadeAtualDetalhada(cliente.data_nascimento);
   const anoCliente = anoDe(cliente.cliente_desde);

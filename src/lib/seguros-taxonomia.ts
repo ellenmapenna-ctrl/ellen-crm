@@ -20,7 +20,7 @@ interface RegraTaxonomiaCobertura {
 
 /** Ordem importa: padrões mais específicos (ex. "Cirurgia Ampliada") vêm antes dos mais genéricos ("Cirurgia"). */
 const TAXONOMIA_COBERTURA: RegraTaxonomiaCobertura[] = [
-  { padrao: /vida\s*inteira|temporari/i, rotulo: "Morte Qualquer Causa", tipo: "base" },
+  { padrao: /vida\s*inteira|tempor[aá]ri/i, rotulo: "Morte Qualquer Causa", tipo: "base" },
   { padrao: /cirurgia\s*ampliada/i, rotulo: "Cirurgia Ampliada", tipo: "opcional" },
   { padrao: /cirurgia/i, rotulo: "Cirurgia", tipo: "opcional" },
   { padrao: /quebra\s*de\s*ossos/i, rotulo: "Fraturas", tipo: "opcional" },
@@ -39,6 +39,15 @@ export function normalizarNomeCobertura(bruto: string): { rotulo: string; tipo: 
     if (regra.padrao.test(bruto)) return { rotulo: regra.rotulo, tipo: regra.tipo };
   }
   return null;
+}
+
+/**
+ * Verdadeiro se a cobertura é a básica (morte qualquer causa). Considera o
+ * tipo gravado no banco e também o nome, porque importações antigas gravaram
+ * "Temporário ..." como opcional.
+ */
+export function ehCoberturaBase(cobertura: { nome_cobertura: string; tipo: string }): boolean {
+  return cobertura.tipo === "base" || normalizarNomeCobertura(cobertura.nome_cobertura)?.tipo === "base";
 }
 
 /** Verdadeiro se o nome de cobertura (bruto ou já normalizado) corresponde ao rótulo canônico informado. */

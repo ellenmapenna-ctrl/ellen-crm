@@ -47,7 +47,7 @@ import { useKanbanEstagios } from "@/hooks/useKanbanEstagios";
 import { useFunisDoClienteForm } from "@/hooks/useFunisDoClienteForm";
 import { FUNIS } from "@/lib/funis";
 import { useTags, useAddTagToCliente, useRemoveTagFromCliente } from "@/hooks/useTags";
-import { COBERTURAS_CANONICAS, RIDERS_INCLUSOS, coberturaCorrespondeARotulo } from "@/lib/seguros-taxonomia";
+import { COBERTURAS_CANONICAS, RIDERS_INCLUSOS, coberturaCorrespondeARotulo, ehCoberturaBase } from "@/lib/seguros-taxonomia";
 import type { Apolice, ApoliceWithCoberturas, Cobertura } from "@/lib/types";
 import { formatarData, formatarMoeda, paraNumero } from "@/lib/format";
 import { idadeAtualDetalhada } from "@/lib/aniversario";
@@ -74,7 +74,7 @@ type SecaoKey = (typeof SECOES)[number]["key"];
 function contarNaoContratadas(apolicesAtivas: ApoliceWithCoberturas[]): number {
   if (apolicesAtivas.length === 0) return 0;
   const todasCoberturas = apolicesAtivas.flatMap((a) => a.coberturas ?? []);
-  const temBasicaAtiva = todasCoberturas.some((c) => c.tipo === "base" && c.status === "ativa");
+  const temBasicaAtiva = todasCoberturas.some((c) => ehCoberturaBase(c) && c.status === "ativa");
 
   let naoContratadas = 0;
   for (const { rotulo } of COBERTURAS_CANONICAS) {
