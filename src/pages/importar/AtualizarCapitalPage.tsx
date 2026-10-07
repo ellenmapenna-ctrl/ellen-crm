@@ -71,12 +71,16 @@ export function AtualizarCapitalPage() {
   const [plano, setPlano] = useState<PlanoCapital | null>(null);
   const [nomeArquivo, setNomeArquivo] = useState("");
   const [incluirPremioDiferente, setIncluirPremioDiferente] = useState(false);
+  const [preencherSeguradora, setPreencherSeguradora] = useState(false);
+  const [nomeSeguradora, setNomeSeguradora] = useState("Prudential");
   const [confirmando, setConfirmando] = useState(false);
   const [aplicando, setAplicando] = useState(false);
   const [progresso, setProgresso] = useState(0);
-  const [resultado, setResultado] = useState<{ atualizadas: number; erros: string[] } | null>(null);
+  const [resultado, setResultado] = useState<{ atualizadas: number; seguradorasPreenchidas: number; erros: string[] } | null>(null);
 
   const alteracoesAAplicar = plano ? [...plano.alteracoes, ...(incluirPremioDiferente ? plano.premioDiferente : [])] : [];
+  const seguradorasAAplicar = plano && preencherSeguradora && nomeSeguradora.trim() ? plano.apolicesSemSeguradora : [];
+  const totalAcoes = alteracoesAAplicar.length + seguradorasAAplicar.length;
 
   const handleArquivo = async (file: File | null | undefined) => {
     if (!file) return;
@@ -84,6 +88,7 @@ export function AtualizarCapitalPage() {
     setPlano(null);
     setResultado(null);
     setIncluirPremioDiferente(false);
+    setPreencherSeguradora(false);
     try {
       const csv = await parseArquivo(file);
       const { colunas, faltando } = detectarColunasCapital(csv.colunas);
@@ -92,7 +97,7 @@ export function AtualizarCapitalPage() {
         return;
       }
       const [apolices, coberturas] = await Promise.all([
-        buscarTudo<ApoliceDb>("apolices", "id, numero_apolice"),
+        buscarTudo<ApoliceDb>("apolices", "id, numero_apolice, seguradora"),
         buscarTudo<CoberturaDb>("coberturas", "id, apolice_id, nome_cobertura, capital_segurado, premio_mensal, status"),
       ]);
       setPlano(planejarAtualizacaoCapital(csv.linhas, colunas, apolices, coberturas));
@@ -105,10 +110,10 @@ export function AtualizarCapitalPage() {
   };
 
   const aplicar = async () => {
-    if (alteracoesAAplicar.length === 0) return;
+    if (totalAcoes === 0) return;
     setAplicando(true);
     setProgresso(0);
-    baixarBackupCsv(alteracoesAAplicar);
+    if (alteracoesAAplicar.length > 0) baixarBackupCsv(alteracoesAAplicar);
     const erros: string[] = [];
     let atualizadas = 0;
     for (let i = 0; i < alteracoesAAplicar.length; i += LOTE_GRAVACAO) {
@@ -126,8 +131,19 @@ export function AtualizarCapitalPage() {
       );
       setProgresso(Math.min(i + LOTE_GRAVACAO, alteracoesAAplicar.length));
     }
+    let seguradorasPreenchidas = 0;
+    for (const a of seguradorasAAplicar) {
+      const { data, error } = await supabase
+        .from("apolices")
+        .update({ seguradora: nomeSeguradora.trim(), updated_at: new Date().toISOString() })
+        .eq("id", a.id)
+        .is("seguradora", null)
+        .select("id");
+      if (error || !data || data.length === 0) erros.push(`Seguradora da apólice ${a.numero}: ${error?.message ?? "nenhuma linha atualizada"}`);
+      else seguradorasPreenchidas++;
+    }
     qc.invalidateQueries({ queryKey: qk.clientes.all });
-    setResultado({ atualizadas, erros });
+    setResultado({ atualizadas, seguradorasPreenchidas, erros });
     setPlano(null);
     setAplicando(false);
   };
@@ -150,9 +166,10 @@ export function AtualizarCapitalPage() {
         <Card className="mb-4 flex flex-col gap-2 border-emerald-200 bg-emerald-50 p-5 text-emerald-900">
           <p className="flex items-center gap-2 font-medium">
             <CheckCircle2 className="size-5" />
-            {resultado.atualizadas} coberturas atualizadas.
+            {resultado.atualizadas} coberturas atualizadas
+            {resultado.seguradorasPreenchidas > 0 ? ` e seguradora preenchida em ${resultado.seguradorasPreenchidas} apólices` : ""}.
           </p>
-          <p className="text-sm">O arquivo de backup com os valores anteriores foi baixado antes da gravação.</p>
+          {resultado.atualizadas > 0 && <p className="text-sm">O arquivo de backup com os valores anteriores foi baixado antes da gravação.</p>}
           {resultado.erros.length > 0 && (
             <div className="text-sm text-destructive">
               <p className="font-medium">{resultado.erros.length} não puderam ser atualizadas:</p>
@@ -201,6 +218,26 @@ export function AtualizarCapitalPage() {
                   </p>
                 </span>
               </label>
+            )}
+
+            {plano.apolicesSemSeguradora.length > 0 && (
+              <div className="rounded-lg border p-3 text-sm">
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <Checkbox checked={preencherSeguradora} onCheckedChange={(v) => setPreencherSeguradora(!!v)} className="mt-0.5" />
+                  <span>
+                    <span className="font-medium">Preencher a seguradora em {plano.apolicesSemSeguradora.length} apólices que estão sem seguradora no sistema</span>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Vale para as apólices que constam neste arquivo. Necessário para a Nova Revisita agrupar as apólices do cliente por seguradora. Só preenche apólices com o campo vazio.
+                    </p>
+                  </span>
+                </label>
+                {preencherSeguradora && (
+                  <div className="mt-2 flex items-center gap-2 pl-7">
+                    <span className="text-xs text-muted-foreground">Seguradora do relatório:</span>
+                    <Input className="h-8 w-48" value={nomeSeguradora} onChange={(e) => setNomeSeguradora(e.target.value)} />
+                  </div>
+                )}
+              </div>
             )}
 
             {alteracoesAAplicar.length > 0 ? (
@@ -268,9 +305,13 @@ export function AtualizarCapitalPage() {
             )}
 
             <div className="flex items-center gap-3">
-              <Button onClick={() => setConfirmando(true)} disabled={alteracoesAAplicar.length === 0 || aplicando}>
+              <Button onClick={() => setConfirmando(true)} disabled={totalAcoes === 0 || aplicando}>
                 {aplicando ? <Loader2 className="size-4 animate-spin" /> : null}
-                {aplicando ? `Atualizando... ${progresso}/${alteracoesAAplicar.length}` : `Atualizar ${alteracoesAAplicar.length} coberturas`}
+                {aplicando
+                  ? `Atualizando... ${progresso}/${alteracoesAAplicar.length}`
+                  : seguradorasAAplicar.length > 0
+                    ? `Aplicar (${alteracoesAAplicar.length} coberturas + ${seguradorasAAplicar.length} seguradoras)`
+                    : `Atualizar ${alteracoesAAplicar.length} coberturas`}
               </Button>
               <p className="text-xs text-muted-foreground">Um arquivo de backup com os valores anteriores é baixado antes de gravar.</p>
             </div>
@@ -279,8 +320,8 @@ export function AtualizarCapitalPage() {
           <ConfirmDialog
             open={confirmando}
             onOpenChange={setConfirmando}
-            title={`Atualizar o capital de ${alteracoesAAplicar.length} coberturas?`}
-            description="Só o campo capital segurado será alterado. Antes disso, um arquivo de backup com os valores atuais será baixado, para você poder desfazer se precisar."
+            title={`Aplicar ${alteracoesAAplicar.length} atualizações de capital${seguradorasAAplicar.length > 0 ? ` e preencher a seguradora de ${seguradorasAAplicar.length} apólices` : ""}?`}
+            description="Só os campos capital segurado e (se marcado) seguradora, hoje vazia, serão alterados. Antes, um arquivo de backup com os valores atuais de capital será baixado."
             confirmText="Atualizar"
             onConfirm={aplicar}
           />

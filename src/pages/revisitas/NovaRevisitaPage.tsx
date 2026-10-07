@@ -9,10 +9,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useClientes } from "@/hooks/useClientes";
+import { ApolicesAtuaisSeletor } from "@/components/revisitas/ApolicesAtuaisSeletor";
+import { useCliente, useClientes } from "@/hooks/useClientes";
 import { buscarPrevidenciaPdfBase64, usePrevidenciaEstudoInfo } from "@/hooks/usePrevidenciaEstudo";
 import { useCriarRevisita } from "@/hooks/useRevisitas";
 import { cn } from "@/lib/utils";
+import { SEM_SEGURADORA, agruparApolicesAtivas, nomeSeguradora } from "@/lib/apolices-cliente";
+import type { ApoliceSistema } from "@/lib/apolices-sistema";
+import { paraNumero } from "@/lib/format";
+import { ehCoberturaBase } from "@/lib/seguros-taxonomia";
 import { SEGURADORAS, SUGESTOES_COBERTURA } from "@/lib/revisita-opcoes";
 import { buscarDetalhesCatalogo } from "@/lib/catalogo-revisita";
 import { renderRevisitaHtml, type RevisitaCobertura, type RevisitaDados, type RevisitaFormato, type RevisitaPremioLinha } from "@/lib/revisita-template";
@@ -128,6 +133,11 @@ export function NovaRevisitaPage() {
   const [tabelaResgatePdf, setTabelaResgatePdf] = useState<File | null>(null);
   const [previdenciaPdf, setPrevidenciaPdf] = useState<File | null>(null);
   const [trocarPrevidencia, setTrocarPrevidencia] = useState(false);
+  const [apolicesSelecionadas, setApolicesSelecionadas] = useState<string[]>([]);
+  const [usarPdfApolice, setUsarPdfApolice] = useState(false);
+  const { data: clienteDetalhe } = useCliente(clienteId || undefined);
+  const apolicesCliente = useMemo(() => clienteDetalhe?.apolices ?? [], [clienteDetalhe]);
+  const usandoApolicesSistema = apolicesSelecionadas.length > 0 && !usarPdfApolice;
   const { data: estudoSalvo } = usePrevidenciaEstudoInfo(clienteId || undefined);
   const usandoEstudoSalvo = !!estudoSalvo && !trocarPrevidencia;
   const [instrucoesExtras, setInstrucoesExtras] = useState("");
@@ -138,6 +148,15 @@ export function NovaRevisitaPage() {
   useEffect(() => {
     setDados((prev) => (prev.clienteNome === clienteNome ? prev : { ...prev, clienteNome }));
   }, [clienteNome]);
+
+  // Ao carregar o cliente: se só há uma seguradora com apólice ativa, já marca todas as dela.
+  useEffect(() => {
+    setUsarPdfApolice(false);
+    const grupos = agruparApolicesAtivas(clienteDetalhe?.apolices ?? []);
+    if (grupos.length === 1) escolherApolices(grupos[0].apolices.map((a) => a.id), clienteDetalhe?.apolices ?? []);
+    else setApolicesSelecionadas([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteDetalhe?.id]);
 
   const html = useMemo(() => {
     try {
@@ -150,6 +169,33 @@ export function NovaRevisitaPage() {
   const atualizarCampo = <K extends keyof RevisitaDados>(campo: K, valor: RevisitaDados[K]) => {
     setDados((prev) => ({ ...prev, [campo]: valor }));
   };
+
+  /** Guarda as apólices marcadas e, se todas forem da mesma seguradora, preenche "Seguradora atual". */
+  function escolherApolices(ids: string[], base: typeof apolicesCliente = apolicesCliente) {
+    setApolicesSelecionadas(ids);
+    const nomes = [...new Set(base.filter((a) => ids.includes(a.id)).map(nomeSeguradora))];
+    if (nomes.length === 1 && nomes[0] !== SEM_SEGURADORA) setDados((prev) => (prev.seguradoraAtual ? prev : { ...prev, seguradoraAtual: nomes[0] }));
+  }
+
+  const montarApolicesSistema = (): ApoliceSistema[] =>
+    apolicesCliente
+      .filter((a) => apolicesSelecionadas.includes(a.id))
+      .map((a) => ({
+        numero: a.numero_apolice,
+        seguradora: a.seguradora,
+        status: a.status,
+        dataEmissao: a.data_emissao,
+        vencimento: a.vencimento_apolice,
+        premioMensalTotal: paraNumero(a.premio_mensal_total),
+        capitalTotal: paraNumero(a.capital_segurado_total),
+        coberturas: (a.coberturas ?? []).map((c) => ({
+          nome: c.nome_cobertura,
+          tipo: ehCoberturaBase(c) ? "base" : "opcional",
+          status: c.status,
+          capital: paraNumero(c.capital_segurado),
+          premioMensal: paraNumero(c.premio_mensal),
+        })),
+      }));
 
   const atualizarCobertura = (idx: number, patch: Partial<RevisitaCobertura>) => {
     setDados((prev) => ({ ...prev, coberturas: prev.coberturas.map((c, i) => (i === idx ? { ...c, ...patch } : c)) }));
@@ -206,13 +252,13 @@ export function NovaRevisitaPage() {
   const apolicesValidas = apolicePdfs.filter((f): f is File => !!f);
   const propostasValidas = propostasPdfs.filter((f): f is File => !!f);
   const apresentacoesValidas = apresentacaoPdfs.filter((f): f is File => !!f);
-  const podeImportar = !!clienteNome && apolicesValidas.length > 0 && propostasValidas.length > 0 && !importando;
+  const podeImportar = !!clienteNome && (usandoApolicesSistema || apolicesValidas.length > 0) && propostasValidas.length > 0 && !importando;
 
   const handleImportarIA = async () => {
     if (!podeImportar) return;
     setImportando(true);
     try {
-      const apolicePdfsBase64 = await Promise.all(apolicesValidas.map(fileParaBase64));
+      const apolicePdfsBase64 = usandoApolicesSistema ? [] : await Promise.all(apolicesValidas.map(fileParaBase64));
       const propostasPdfBase64 = await Promise.all(propostasValidas.map(fileParaBase64));
       const tabelaResgateBase64 = tabelaResgatePdf ? await fileParaBase64(tabelaResgatePdf) : undefined;
       const tabelaResgateMediaType = tabelaResgatePdf ? mediaTypeDoArquivo(tabelaResgatePdf) : undefined;
@@ -227,6 +273,8 @@ export function NovaRevisitaPage() {
         body: JSON.stringify({
           clienteNome,
           apolicePdfsBase64,
+          apolicesSistema: usandoApolicesSistema ? montarApolicesSistema() : undefined,
+          clienteNascimentoIso: clienteDetalhe?.data_nascimento ?? undefined,
           propostasPdfBase64,
           temResgate: temResgateImport,
           tabelaResgateBase64,
@@ -371,6 +419,12 @@ export function NovaRevisitaPage() {
                 </div>
               </div>
             </div>
+            {clienteId && clienteDetalhe && (
+              <div className="mt-5">
+                <Rotulo>Apólices atuais deste cliente — marque com quais comparar</Rotulo>
+                <ApolicesAtuaisSeletor apolices={apolicesCliente} selecionadas={apolicesSelecionadas} onChange={(ids) => escolherApolices(ids)} />
+              </div>
+            )}
           </Secao>
 
           <Secao
@@ -379,7 +433,7 @@ export function NovaRevisitaPage() {
               <div className="flex items-center gap-3">
                 <Button type="button" variant="outline" size="sm" onClick={() => setImportAberto((v) => !v)}>
                   <Sparkles className="size-3.5" />
-                  Importar apólice (PDF)
+                  Importar com IA
                 </Button>
                 <span className="text-xs text-muted-foreground">
                   {dados.coberturas.length} cobertura{dados.coberturas.length === 1 ? "" : "s"}
@@ -390,35 +444,53 @@ export function NovaRevisitaPage() {
             {importAberto && (
               <div className="mb-5 flex flex-col gap-3 rounded-lg border border-dashed border-indigo-300 bg-indigo-50/40 p-4">
                 <p className="text-xs text-muted-foreground">
-                  Envie a apólice atual e a(s) proposta(s) nova(s) — a IA lê os PDFs e preenche as coberturas abaixo automaticamente. Revise tudo antes de salvar.
+                  Envie a(s) proposta(s) nova(s) — a IA preenche as coberturas abaixo comparando com a apólice atual. Revise tudo antes de salvar.
                 </p>
-                <div>
-                  <Rotulo>Apólice atual (PDF)</Rotulo>
-                  <div className="flex flex-col gap-2">
-                    {apolicePdfs.map((_, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <Input
-                          type="file"
-                          accept="application/pdf"
-                          className="bg-white"
-                          onChange={(e) => {
-                            const arq = e.target.files?.[0] ?? null;
-                            setApolicePdfs((prev) => prev.map((p, idx) => (idx === i ? arq : p)));
-                          }}
-                        />
-                        {apolicePdfs.length > 1 && (
-                          <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => setApolicePdfs((prev) => prev.filter((_, idx) => idx !== i))}>
-                            <X className="size-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setApolicePdfs((prev) => [...prev, null])}>
-                      <Plus className="size-4" />
-                      Adicionar outro arquivo
-                    </Button>
+                {usandoApolicesSistema ? (
+                  <div className="flex flex-col gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 p-2.5 text-sm text-emerald-900">
+                    <span>
+                      Usando {apolicesSelecionadas.length} apólice{apolicesSelecionadas.length > 1 ? "s" : ""} do sistema como apólice atual — não precisa enviar o PDF.
+                    </span>
+                    <button type="button" className="self-start text-xs underline" onClick={() => setUsarPdfApolice(true)}>
+                      Enviar o PDF da apólice em vez disso
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div>
+                      <Rotulo>Apólice atual (PDF)</Rotulo>
+                      <div className="flex flex-col gap-2">
+                        {apolicePdfs.map((_, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <Input
+                              type="file"
+                              accept="application/pdf"
+                              className="bg-white"
+                              onChange={(e) => {
+                                const arq = e.target.files?.[0] ?? null;
+                                setApolicePdfs((prev) => prev.map((p, idx) => (idx === i ? arq : p)));
+                              }}
+                            />
+                            {apolicePdfs.length > 1 && (
+                              <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => setApolicePdfs((prev) => prev.filter((_, idx) => idx !== i))}>
+                                <X className="size-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setApolicePdfs((prev) => [...prev, null])}>
+                          <Plus className="size-4" />
+                          Adicionar outro arquivo
+                        </Button>
+                      </div>
+                    </div>
+                    {apolicesSelecionadas.length > 0 && (
+                      <button type="button" className="mt-2 text-xs underline" onClick={() => setUsarPdfApolice(false)}>
+                        Usar as apólices do sistema
+                      </button>
+                    )}
+                  </>
+                )}
                 <div>
                   <Rotulo>Proposta(s) da seguradora nova (PDF)</Rotulo>
                   <div className="flex flex-col gap-2">

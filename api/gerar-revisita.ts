@@ -10,6 +10,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { renderRevisitaHtml, type RevisitaDados, type RevisitaFormato } from "../src/lib/revisita-template.js";
 import { aplicarCatalogo } from "../src/lib/catalogo-revisita.js";
+import { descreverApolicesSistema, type ApoliceSistema } from "../src/lib/apolices-sistema.js";
 
 // Schema no formato aceito pelo responseSchema do Gemini (subconjunto do
 // OpenAPI 3.0 — sem additionalProperties, sem tuplas, etc).
@@ -121,6 +122,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const {
     clienteNome,
     apolicePdfsBase64,
+    apolicesSistema,
+    clienteNascimentoIso,
     propostasPdfBase64,
     temResgate,
     tabelaResgateBase64,
@@ -132,11 +135,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } = req.body ?? {};
 
   const apolices: string[] = Array.isArray(apolicePdfsBase64) ? apolicePdfsBase64 : [];
+  // Alternativa ao PDF: apólices que o cliente já tem no sistema (Nova Revisita).
+  const apolicesDoSistema: ApoliceSistema[] = Array.isArray(apolicesSistema) ? apolicesSistema : [];
   const propostas: string[] = Array.isArray(propostasPdfBase64) ? propostasPdfBase64 : [];
   const formatoFinal: RevisitaFormato = formato === "vanguarda" || formato === "essencial" ? formato : "vitrine";
 
-  if (!clienteNome || apolices.length === 0 || propostas.length === 0 || !dataPreparo) {
-    res.status(400).json({ error: "Faltam campos obrigatórios: clienteNome, apolicePdfsBase64 (1+), propostasPdfBase64 (1+), dataPreparo." });
+  if (!clienteNome || (apolices.length === 0 && apolicesDoSistema.length === 0) || propostas.length === 0 || !dataPreparo) {
+    res.status(400).json({ error: "Faltam campos obrigatórios: clienteNome, apolicePdfsBase64 (1+) ou apolicesSistema (1+), propostasPdfBase64 (1+), dataPreparo." });
     return;
   }
 
@@ -144,10 +149,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     `Cliente: ${clienteNome}`,
     `Data de preparo do documento: ${dataPreparo}`,
     instrucoesExtras ? `Instruções extras do corretor: ${instrucoesExtras}` : null,
-    apolices.length > 1
+    apolicesDoSistema.length > 0
+      ? descreverApolicesSistema(clienteNome, typeof clienteNascimentoIso === "string" ? clienteNascimentoIso : null, apolicesDoSistema)
+      : apolices.length > 1
       ? `Os primeiros ${apolices.length} documentos são da situação de seguro atual do cliente (podem ser apólices separadas, inclusive com números diferentes — trate-as como uma única "apólice atual" combinada: some os prêmios de todas e cruze as coberturas de todas contra a(s) proposta(s) nova(s)).`
       : "O primeiro documento é a apólice atual do cliente.",
-    `Em seguida vêm ${propostas.length} documento(s) de proposta(s) de seguradora(s) nova(s).`,
+    apolicesDoSistema.length > 0
+      ? `Os ${propostas.length} documento(s) a seguir são proposta(s) de seguradora(s) nova(s).`
+      : `Em seguida vêm ${propostas.length} documento(s) de proposta(s) de seguradora(s) nova(s).`,
     temResgate
       ? "O produto atual do cliente é resgatável (Vida Inteira / Vida e Saúde) e será substituído por uma previdência — siga a regra de RESGATE e substituição por previdência. " +
         (tabelaResgateBase64 ? "Em seguida vem a tabela de evolução/resgate da apólice atual (pode ser PDF ou uma foto/print da tabela). " : "") +

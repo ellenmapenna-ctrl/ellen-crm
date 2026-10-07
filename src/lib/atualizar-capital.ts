@@ -14,6 +14,7 @@ import {
 export interface ApoliceDb {
   id: string;
   numero_apolice: string | null;
+  seguradora?: string | null;
 }
 
 export interface CoberturaDb {
@@ -58,6 +59,8 @@ export interface PlanoCapital {
   premioDiferente: AlteracaoCapital[];
   apolicesNaoEncontradas: string[];
   semCorrespondencia: ItemSemCorrespondencia[];
+  /** Apólices que constam no arquivo e estão sem seguradora no banco (para preencher com o nome da seguradora do relatório). */
+  apolicesSemSeguradora: { id: string; numero: string }[];
 }
 
 function semAcento(valor: string): string {
@@ -112,7 +115,9 @@ export function planejarAtualizacaoCapital(
     premioDiferente: [],
     apolicesNaoEncontradas: [],
     semCorrespondencia: [],
+    apolicesSemSeguradora: [],
   };
+  const apolicesVistas = new Set<string>();
   const usadas = new Set<string>();
   const apolicesAusentes = new Set<string>();
 
@@ -135,6 +140,13 @@ export function planejarAtualizacaoCapital(
     if (!apoliceIds) {
       apolicesAusentes.add(numero);
       continue;
+    }
+
+    for (const id of apoliceIds) {
+      if (apolicesVistas.has(id)) continue;
+      apolicesVistas.add(id);
+      const a = apolices.find((x) => x.id === id);
+      if (a && !a.seguradora?.trim()) plano.apolicesSemSeguradora.push({ id, numero });
     }
 
     const novoCapital = paraNumero(beneficioBruto);
