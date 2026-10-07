@@ -4,6 +4,7 @@ import { ClientesListPage } from "@/pages/clientes/ClientesListPage";
 import { ClienteDetailPage } from "@/pages/clientes/ClienteDetailPage";
 import { KanbanPage } from "@/pages/kanban/KanbanPage";
 import { SitPlanPage } from "@/pages/sitplan/SitPlanPage";
+import { DemandasPage } from "@/pages/demandas/DemandasPage";
 import { AgendaPage } from "@/pages/agenda/AgendaPage";
 import { AniversariantesPage } from "@/pages/aniversariantes/AniversariantesPage";
 import { RevisitasPage } from "@/pages/revisitas/RevisitasPage";
@@ -26,6 +27,7 @@ export const routers = [
       { path: "clientes/:id", element: <ClienteDetailPage /> },
       { path: "kanban", element: <KanbanPage /> },
       { path: "sitplan", element: <SitPlanPage /> },
+      { path: "demandas", element: <DemandasPage /> },
       { path: "agenda", element: <AgendaPage /> },
       { path: "aniversariantes", element: <AniversariantesPage /> },
       {

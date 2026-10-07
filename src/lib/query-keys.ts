@@ -31,6 +31,9 @@ export const qk = {
   compromissos: {
     byPeriodo: (inicio: string, fim: string) => ["compromissos", "periodo", inicio, fim] as const,
   },
+  demandas: {
+    all: ["demandas"] as const,
+  },
   revisitas: {
     all: ["revisitas"] as const,
     list: () => ["revisitas", "list"] as const,

@@ -32,6 +32,10 @@ export type Compromisso = Database["public"]["Tables"]["compromissos"]["Row"];
 export type CompromissoInsert = Database["public"]["Tables"]["compromissos"]["Insert"];
 export type CompromissoUpdate = Database["public"]["Tables"]["compromissos"]["Update"];
 
+export type Demanda = Database["public"]["Tables"]["demandas"]["Row"];
+export type DemandaInsert = Database["public"]["Tables"]["demandas"]["Insert"];
+export type DemandaUpdate = Database["public"]["Tables"]["demandas"]["Update"];
+
 // ---- Tipos com relações aninhadas (resultado de selects com join) ----
 
 /** Cliente com coberturas de cada apólice carregadas (uso na aba de apólices). */
@@ -83,3 +87,8 @@ export const ESTADO_CIVIL_OPCOES = [
   "viuvo",
   "uniao_estavel",
 ] as const;
+
+/** Demanda com o cliente vinculado (quando houver) carregado junto. */
+export type DemandaWithCliente = Demanda & {
+  cliente: Pick<Cliente, "id" | "nome_completo"> | null;
+};

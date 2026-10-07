@@ -1,6 +1,6 @@
 import * as React from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Cake, CalendarClock, CalendarDays, KanbanSquare, LayoutDashboard, ListChecks, PiggyBank, ShieldCheck, Tags, Upload, Users } from "lucide-react";
+import { Cake, CalendarClock, CalendarDays, ClipboardList, KanbanSquare, LayoutDashboard, ListChecks, PiggyBank, ShieldCheck, Tags, Upload, Users } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useAniversariantes } from "@/hooks/useAniversariantes";
+import { useDemandasAbertasCount } from "@/hooks/useDemandas";
 import { useSitPlanCount } from "@/hooks/useSitPlan";
 import { hojeIso } from "@/lib/sitplan";
 
@@ -36,6 +37,7 @@ const NAV_ITENS: Omit<NavItem, "badge">[] = [
   { to: "/clientes", label: "Clientes", icon: Users },
   { to: "/kanban", label: "Funil", icon: KanbanSquare },
   { to: "/sitplan", label: "SitPlan & TA", icon: ListChecks },
+  { to: "/demandas", label: "Demandas", icon: ClipboardList },
   { to: "/agenda", label: "Agenda", icon: CalendarDays },
   { to: "/aniversariantes", label: "Aniversariantes", icon: Cake },
   { to: "/revisitas", label: "Revisão Anual", icon: CalendarClock },
@@ -49,6 +51,7 @@ const TITULOS: Record<string, string> = {
   "/clientes": "Clientes",
   "/kanban": "Funil",
   "/sitplan": "SitPlan & TA",
+  "/demandas": "Demandas",
   "/agenda": "Agenda",
   "/aniversariantes": "Aniversariantes",
   "/revisitas": "Revisão Anual",
@@ -66,6 +69,7 @@ export function AppLayout() {
   const location = useLocation();
   const { data: aniversariantes } = useAniversariantes(30);
   const hojeCount = aniversariantes?.hojeCount ?? 0;
+  const { data: demandasAbertas } = useDemandasAbertasCount();
   const { data: sitplanHojeCount } = useSitPlanCount(hojeIso());
 
   return (
@@ -103,6 +107,13 @@ export function AppLayout() {
                       <SidebarMenuBadge>
                         <Badge className="h-5 min-w-5 justify-center bg-primary px-1.5 text-[11px] text-primary-foreground">
                           {hojeCount}
+                        </Badge>
+                      </SidebarMenuBadge>
+                    )}
+                    {item.to === "/demandas" && !!demandasAbertas && demandasAbertas > 0 && (
+                      <SidebarMenuBadge>
+                        <Badge className="h-5 min-w-5 justify-center bg-primary px-1.5 text-[11px] text-primary-foreground">
+                          {demandasAbertas}
                         </Badge>
                       </SidebarMenuBadge>
                     )}

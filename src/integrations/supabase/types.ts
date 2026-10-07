@@ -3663,6 +3663,55 @@ export type Database = {
           },
         ]
       }
+      demandas: {
+        Row: {
+          cliente_id: string | null
+          concluida_em: string | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          prazo: string | null
+          prioridade: string
+          responsavel: string
+          status: string
+          titulo: string
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          concluida_em?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          prazo?: string | null
+          prioridade?: string
+          responsavel?: string
+          status?: string
+          titulo: string
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          concluida_em?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          prazo?: string | null
+          prioridade?: string
+          responsavel?: string
+          status?: string
+          titulo?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demandas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rotina_negocios: {
         Row: {
           ativo: boolean
