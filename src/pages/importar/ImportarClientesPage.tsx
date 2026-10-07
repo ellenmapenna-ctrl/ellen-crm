@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -672,6 +672,9 @@ export function ImportarClientesPage() {
             Nova importação
           </Button>
         )}
+        <Button variant="outline" asChild>
+          <Link to="/importar/capital">Atualizar capital das coberturas</Link>
+        </Button>
       </PageHeader>
 
       {/* Stepper */}
