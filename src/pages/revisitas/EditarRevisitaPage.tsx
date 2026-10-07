@@ -14,6 +14,8 @@ import { SEGURADORAS, SUGESTOES_COBERTURA } from "@/lib/revisita-opcoes";
 import { buscarDetalhesCatalogo } from "@/lib/catalogo-revisita";
 import { renderRevisitaHtml, type RevisitaCobertura, type RevisitaDados, type RevisitaFormato, type RevisitaPremioLinha } from "@/lib/revisita-template";
 import { BaixarPdfButton } from "./BaixarPdfButton";
+import { BaixarPdfReuniaoButton } from "./BaixarPdfReuniaoButton";
+import { ApresentacaoSeletor } from "@/components/revisitas/ApresentacaoSeletor";
 
 const FORMATOS: { valor: RevisitaFormato; nome: string; desc: string }[] = [
   { valor: "vanguarda", nome: "Vanguarda", desc: "Banner diagonal em destaque, com rodapé de contatos em ícones." },
@@ -428,6 +430,11 @@ export function EditarRevisitaPage() {
             </div>
           </Secao>
 
+          <Secao titulo="Apresentação da seguradora">
+            <p className="-mt-2 mb-3 text-xs text-muted-foreground">Escolha a apresentação que entra no "Baixar PDF reunião", depois da apólice atual e antes da comparação.</p>
+            <ApresentacaoSeletor value={dados.apresentacoes ?? []} onChange={(keys) => setDados((prev) => (prev ? { ...prev, apresentacoes: keys } : prev))} />
+          </Secao>
+
           <Secao titulo="Formato do PDF">
             <p className="-mt-2 mb-4 text-xs text-muted-foreground">Escolha o design usado ao gerar o PDF e a pré-visualização deste comparativo.</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -464,6 +471,7 @@ export function EditarRevisitaPage() {
             Pré-visualizar
           </Button>
           <BaixarPdfButton dados={dados} formato={formato} />
+          <BaixarPdfReuniaoButton dados={dados} formato={formato} clienteId={data.cliente_id} />
           <Button onClick={handleSalvar} disabled={salvando} className="bg-indigo-600 hover:bg-indigo-700">
             {salvando ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
             Salvar alterações

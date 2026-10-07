@@ -13,6 +13,7 @@ import { useRevisitas, useDuplicarRevisita, useExcluirRevisita, type RevisitaRow
 import { REVISITAS } from "@/lib/revisitas";
 import { abrirWhatsapp } from "@/lib/whatsapp";
 import { BaixarPdfButton } from "./BaixarPdfButton";
+import { BaixarPdfReuniaoButton } from "./BaixarPdfReuniaoButton";
 import type { RevisitaFormato } from "@/lib/revisita-template";
 
 function detectarFormato(html: string): RevisitaFormato {
@@ -160,6 +161,7 @@ export function RevisitasPage() {
               {item.linha && (
                 <>
                   <BaixarPdfButton size="sm" variant="ghost" dados={item.linha.dados} formato={detectarFormato(item.linha.html)} />
+                  <BaixarPdfReuniaoButton size="sm" variant="ghost" dados={item.linha.dados} formato={detectarFormato(item.linha.html)} clienteId={item.linha.cliente_id} />
                   <Button size="sm" variant="ghost" onClick={() => navigate(`/revisitas/${item.linha!.id}/editar`)}>
                     <Pencil className="size-3.5" />
                     Editar

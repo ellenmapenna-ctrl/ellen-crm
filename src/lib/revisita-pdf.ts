@@ -86,8 +86,8 @@ export interface ParamsDownloadRevisita {
   formato: RevisitaFormato;
 }
 
-/** Gera o Comparative Board no servidor, junta com os arquivos enviados e dispara o download. */
-export async function baixarRevisitaPdf({ apolices, tabelaResgate, apresentacoes, dados, formato }: ParamsDownloadRevisita): Promise<void> {
+/** Gera o PDF do Comparative Board no servidor. */
+export async function gerarComparativoBytes(dados: RevisitaDados, formato: RevisitaFormato): Promise<Uint8Array> {
   const res = await fetch("/api/gerar-comparativo-pdf", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -97,7 +97,22 @@ export async function baixarRevisitaPdf({ apolices, tabelaResgate, apresentacoes
     const json = await res.json().catch(() => null);
     throw new Error(json?.error ?? "Erro ao gerar o comparativo.");
   }
-  const comparativo = new Uint8Array(await res.arrayBuffer());
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+/** Dispara o download de bytes de PDF no navegador. */
+export function baixarBytesPdf(bytes: Uint8Array, nomeArquivo: string): void {
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nomeArquivo;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Gera o Comparative Board no servidor, junta com os arquivos enviados e dispara o download. */
+export async function baixarRevisitaPdf({ apolices, tabelaResgate, apresentacoes, dados, formato }: ParamsDownloadRevisita): Promise<void> {
+  const comparativo = await gerarComparativoBytes(dados, formato);
 
   let tabela: EntradaPdfFinal["tabelaResgate"];
   if (tabelaResgate) {

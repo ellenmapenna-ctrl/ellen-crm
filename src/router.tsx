@@ -16,6 +16,7 @@ import { TagsPage } from "@/pages/tags/TagsPage";
 import { ImportarClientesPage } from "@/pages/importar/ImportarClientesPage";
 import { AtualizarCapitalPage } from "@/pages/importar/AtualizarCapitalPage";
 import { ImportarVencimentosPage } from "@/pages/importar/ImportarVencimentosPage";
+import { ImportarDetalhesApolicesPage } from "@/pages/importar/ImportarDetalhesApolicesPage";
 import { GeradorPrevidenciaPage } from "@/pages/previdencia/GeradorPrevidenciaPage";
 import NotFound from "@/pages/NotFound";
 
@@ -69,6 +70,7 @@ export const routers = [
       { path: "importar", element: <ImportarClientesPage /> },
       { path: "importar/capital", element: <AtualizarCapitalPage /> },
       { path: "importar/vencimentos", element: <ImportarVencimentosPage /> },
+      { path: "importar/apolices", element: <ImportarDetalhesApolicesPage /> },
       { path: "*", element: <NotFound /> },
     ],
   },

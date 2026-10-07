@@ -3990,6 +3990,37 @@ export type Database = {
           },
         ]
       }
+      apolice_detalhes: {
+        Row: {
+          apolice_id: string
+          created_at: string | null
+          dados: Json
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          apolice_id: string
+          created_at?: string | null
+          dados: Json
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          apolice_id?: string
+          created_at?: string | null
+          dados?: Json
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apolice_detalhes_apolice_id_fkey"
+            columns: ["apolice_id"]
+            referencedRelation: "apolices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       previdencia_estudos: {
         Row: {
           cliente_id: string

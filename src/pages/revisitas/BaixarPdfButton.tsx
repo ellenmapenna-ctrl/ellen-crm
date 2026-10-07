@@ -90,7 +90,7 @@ export function BaixarPdfButton({
     <>
       <Button type="button" variant={variant} size={size} onClick={() => baixar(false)} disabled={baixando}>
         {baixando && !aberto ? <Loader2 className={cn("animate-spin", iconeClasse)} /> : <Download className={iconeClasse} />}
-        {baixando && !aberto ? "Gerando..." : "Baixar PDF"}
+        {baixando && !aberto ? "Gerando..." : "Baixar PDF comparação"}
       </Button>
       <Button
         type="button"
@@ -98,8 +98,8 @@ export function BaixarPdfButton({
         size={size === "sm" ? "sm" : "icon"}
         onClick={() => setAberto(true)}
         disabled={baixando}
-        title="Baixar PDF completo, incluindo apólice e anexos"
-        aria-label="Baixar PDF completo, incluindo apólice e anexos"
+        title="Baixar PDF da comparação incluindo arquivos que você anexar"
+        aria-label="Baixar PDF da comparação incluindo arquivos que você anexar"
       >
         <Paperclip className={iconeClasse} />
       </Button>
