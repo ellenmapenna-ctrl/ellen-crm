@@ -96,7 +96,7 @@ const CATALOGO: EntradaCatalogo[] = [
     seguradora: (s) => normalizar(s).includes("azos"),
     cobertura: (c) => normalizar(c).includes("doencas graves"),
     detalhes: [
-      "(30 patlogias cobertas)",
+      "(30 patologias cobertas)",
       "(Câncer coberto nos estágios leve, moderado e grave)",
       "(Cobre infarto e AVC estágio I e II)",
       "(Encerra aos 75 anos)",
