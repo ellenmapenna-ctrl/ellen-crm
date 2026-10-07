@@ -40,7 +40,15 @@ export function juntarSeguradoras(lista: string[]): string {
 }
 
 /** Opções para escolher a seguradora dos textos padrão de uma cobertura: as da revisita primeiro, depois as demais conhecidas. */
-export function opcoesSeguradora(valor: string): string[] {
+export function opcoesSeguradora(valor: string, escolhida?: string): string[] {
   const doLado = listarSeguradoras(valor);
+  if (escolhida && !doLado.some((d) => d.toLowerCase() === escolhida.toLowerCase())) doLado.push(escolhida);
   return [...doLado, ...SEGURADORAS.filter((s) => !doLado.some((d) => d.toLowerCase() === s.toLowerCase()))];
+}
+
+/** Valor mostrado na lista da linha: a escolha feita nela ou, se o lado tem uma seguradora só, essa seguradora. */
+export function seguradoraDaLinha(escolhida: string | undefined, valorDoLado: string): string {
+  if (escolhida) return escolhida;
+  const lista = listarSeguradoras(valorDoLado);
+  return lista.length === 1 ? lista[0] : "";
 }

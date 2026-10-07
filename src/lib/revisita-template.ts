@@ -14,6 +14,9 @@ export interface RevisitaCobertura {
   novoSemCobertura?: boolean;
   novoValor: string;
   novoDetalhes: string[];
+  /** Seguradora escolhida para esta linha (define os textos padrão); não aparece no documento. */
+  atualSeguradora?: string;
+  novoSeguradora?: string;
 }
 
 export interface RevisitaPremioLinha {

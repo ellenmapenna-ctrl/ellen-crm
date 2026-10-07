@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useRevisita, useAtualizarRevisita } from "@/hooks/useRevisitas";
 import { cn } from "@/lib/utils";
-import { opcoesSeguradora, SUGESTOES_COBERTURA } from "@/lib/revisita-opcoes";
+import { opcoesSeguradora, seguradoraDaLinha, SUGESTOES_COBERTURA } from "@/lib/revisita-opcoes";
 import { SeguradorasField } from "@/components/revisitas/SeguradorasField";
 import { buscarDetalhesCatalogo } from "@/lib/catalogo-revisita";
 import { renderRevisitaHtml, type RevisitaCobertura, type RevisitaDados, type RevisitaFormato, type RevisitaPremioLinha } from "@/lib/revisita-template";
@@ -107,12 +107,14 @@ export function EditarRevisitaPage() {
 
   const selecionarSeguradora = (idx: number, lado: "atual" | "novo", seguradora: string) => {
     const cobertura = dados.coberturas[idx];
+    atualizarCobertura(idx, lado === "atual" ? { atualSeguradora: seguradora || undefined } : { novoSeguradora: seguradora || undefined });
+    if (!seguradora) return;
     const sugeridos = buscarDetalhesCatalogo(seguradora, cobertura.titulo);
-    if (lado === "atual") {
-      atualizarCobertura(idx, { atualDetalhes: sugeridos ?? cobertura.atualDetalhes });
-    } else {
-      atualizarCobertura(idx, { novoDetalhes: sugeridos ?? cobertura.novoDetalhes });
+    if (!sugeridos) {
+      toast.info(`Ainda não há texto padrão de ${seguradora} para "${cobertura.titulo}".`, { description: "A escolha ficou marcada; ajuste o texto da cobertura à mão se precisar." });
+      return;
     }
+    atualizarCobertura(idx, lado === "atual" ? { atualDetalhes: sugeridos } : { novoDetalhes: sugeridos });
   };
 
   const removerCobertura = (idx: number) => {
@@ -254,13 +256,11 @@ export function EditarRevisitaPage() {
                       <Rotulo>Formatação atual</Rotulo>
                       <select
                         className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
-                        value=""
-                        onChange={(e) => {
-                          if (e.target.value) selecionarSeguradora(idx, "atual", e.target.value);
-                        }}
+                        value={seguradoraDaLinha(c.atualSeguradora, dados.seguradoraAtual)}
+                        onChange={(e) => selecionarSeguradora(idx, "atual", e.target.value)}
                       >
-                        <option value="">Usar textos padrão de…</option>
-                        {opcoesSeguradora(dados.seguradoraAtual).map((s) => (
+                        <option value="">Escolher seguradora…</option>
+                        {opcoesSeguradora(dados.seguradoraAtual, c.atualSeguradora).map((s) => (
                           <option key={s} value={s}>
                             {s}
                           </option>
@@ -271,13 +271,11 @@ export function EditarRevisitaPage() {
                       <Rotulo>Nova formatação</Rotulo>
                       <select
                         className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
-                        value=""
-                        onChange={(e) => {
-                          if (e.target.value) selecionarSeguradora(idx, "novo", e.target.value);
-                        }}
+                        value={seguradoraDaLinha(c.novoSeguradora, dados.seguradoraNova)}
+                        onChange={(e) => selecionarSeguradora(idx, "novo", e.target.value)}
                       >
-                        <option value="">Usar textos padrão de…</option>
-                        {opcoesSeguradora(dados.seguradoraNova).map((s) => (
+                        <option value="">Escolher seguradora…</option>
+                        {opcoesSeguradora(dados.seguradoraNova, c.novoSeguradora).map((s) => (
                           <option key={s} value={s}>
                             {s}
                           </option>
