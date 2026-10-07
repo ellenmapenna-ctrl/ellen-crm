@@ -48,6 +48,7 @@ import { useFunisDoClienteForm } from "@/hooks/useFunisDoClienteForm";
 import { FUNIS } from "@/lib/funis";
 import { useTags, useAddTagToCliente, useRemoveTagFromCliente } from "@/hooks/useTags";
 import { COBERTURAS_CANONICAS, RIDERS_INCLUSOS, coberturaCorrespondeARotulo, ehCoberturaBase } from "@/lib/seguros-taxonomia";
+import { diaDoVencimento, proximoVencimentoDoCliente } from "@/lib/vencimentos";
 import type { Apolice, ApoliceWithCoberturas, Cobertura } from "@/lib/types";
 import { formatarData, formatarMoeda, paraNumero } from "@/lib/format";
 import { idadeAtualDetalhada } from "@/lib/aniversario";
@@ -144,6 +145,7 @@ export function ClienteDetailPage() {
   const apolicesAtivas = useMemo(() => (apolicesData ?? []).filter((a) => a.status === "ativa"), [apolicesData]);
   const naoContratadas = useMemo(() => contarNaoContratadas(apolicesAtivas), [apolicesAtivas]);
   const proximaApolice = useMemo(() => apoliceProximoVencimento(apolicesData ?? []), [apolicesData]);
+  const diaVencimento = useMemo(() => diaDoVencimento(proximoVencimentoDoCliente(apolicesData ?? [])), [apolicesData]);
   const idade = idadeAtualDetalhada(cliente?.data_nascimento);
 
   const tagsDoCliente = useMemo(
@@ -273,14 +275,14 @@ export function ClienteDetailPage() {
               </>
             )}
           </div>
-          {proximaApolice && (
+          {(diaVencimento || proximaApolice?.melhor_dia_pagamento) && (
             <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span>Próx. Venc. <strong className="text-foreground">{formatarData(proximaApolice.vencimento_apolice)}</strong></span>
-              {proximaApolice.melhor_dia_pagamento && (
-                <>
-                  <span className="text-border">·</span>
-                  <span>Melhor Dia <strong className="text-foreground">{proximaApolice.melhor_dia_pagamento}</strong></span>
-                </>
+              {diaVencimento && (
+                <span>Dia de vencimento <strong className="text-foreground">{diaVencimento}</strong></span>
+              )}
+              {diaVencimento && proximaApolice?.melhor_dia_pagamento && <span className="text-border">·</span>}
+              {proximaApolice?.melhor_dia_pagamento && (
+                <span>Melhor Dia <strong className="text-foreground">{proximaApolice.melhor_dia_pagamento}</strong></span>
               )}
             </div>
           )}
