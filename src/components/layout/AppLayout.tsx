@@ -58,6 +58,7 @@ const TITULOS: Record<string, string> = {
   "/previdencia": "Gerador de Previdência",
   "/tags": "Tags",
   "/importar": "Importar clientes",
+  "/importar/capital": "Atualizar capital segurado",
 };
 
 function tituloDaRota(pathname: string): string {
