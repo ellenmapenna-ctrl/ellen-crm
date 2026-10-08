@@ -78,6 +78,7 @@ export function AtualizarCapitalPage() {
   const [progresso, setProgresso] = useState(0);
   const [resultado, setResultado] = useState<{ atualizadas: number; seguradorasPreenchidas: number; erros: string[] } | null>(null);
 
+  const divergentesTodos = plano ? [...plano.divergentes, ...plano.muitoDiferentes] : [];
   const alteracoesAAplicar = plano ? [...plano.alteracoes, ...(incluirPremioDiferente ? plano.premioDiferente : [])] : [];
   const seguradorasAAplicar = plano && preencherSeguradora && nomeSeguradora.trim() ? plano.apolicesSemSeguradora : [];
   const totalAcoes = alteracoesAAplicar.length + seguradorasAAplicar.length;
@@ -204,7 +205,7 @@ export function AtualizarCapitalPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Resumo rotulo="coberturas serão atualizadas" valor={plano.alteracoes.length} destaque />
               <Resumo rotulo="já estão corretas" valor={plano.jaCorretas} />
-              <Resumo rotulo="com capital diferente (não alteradas)" valor={plano.divergentes.length} />
+              <Resumo rotulo="com capital diferente (não alteradas)" valor={divergentesTodos.length} />
               <Resumo rotulo="sem correspondência no banco" valor={plano.semCorrespondencia.length + plano.apolicesNaoEncontradas.length} />
             </div>
 
@@ -270,14 +271,14 @@ export function AtualizarCapitalPage() {
               <p className="text-sm text-muted-foreground">Nenhuma cobertura precisa ser atualizada com este arquivo.</p>
             )}
 
-            {plano.divergentes.length > 0 && (
+            {divergentesTodos.length > 0 && (
               <details className="text-sm">
-                <summary className="cursor-pointer font-medium">{plano.divergentes.length} coberturas com capital diferente (não serão alteradas)</summary>
+                <summary className="cursor-pointer font-medium">{divergentesTodos.length} coberturas com capital diferente (não serão alteradas)</summary>
                 <p className="mt-1 text-xs text-muted-foreground">
                   O banco já tem um capital preenchido e diferente do arquivo (por exemplo, capital corrigido pela inflação). Por segurança, estas ficam como estão.
                 </p>
                 <ul className="mt-2 list-disc pl-5 text-xs">
-                  {plano.divergentes.map((d) => (
+                  {divergentesTodos.map((d) => (
                     <li key={d.coberturaId}>
                       Apólice {d.apoliceNumero} · {d.nome}: banco {formatarMoeda(d.de)} / arquivo {formatarMoeda(d.para)}
                     </li>

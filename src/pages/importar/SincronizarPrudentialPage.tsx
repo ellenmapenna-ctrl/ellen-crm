@@ -14,6 +14,8 @@ import type { Json } from "@/integrations/supabase/types";
 import { parseArquivo } from "@/lib/csv";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { qk } from "@/lib/query-keys";
+import { limparNomeCobertura } from "@/lib/apolice-prudential-template";
+import { normalizarNomeCobertura } from "@/lib/seguros-taxonomia";
 import type { CoberturaDb } from "@/lib/atualizar-capital";
 import {
   detectarColunasSincronizacao,
@@ -95,6 +97,8 @@ export function SincronizarPrudentialPage() {
   const [sAtraso, setSAtraso] = useState(true);
   const [sCapital, setSCapital] = useState(true);
   const [sIpca, setSIpca] = useState(false);
+  const [sGrandes, setSGrandes] = useState(true);
+  const [sFaltantes, setSFaltantes] = useState(true);
   const [sDetalhes, setSDetalhes] = useState(true);
   const [confirmando, setConfirmando] = useState(false);
   const [aplicando, setAplicando] = useState(false);
@@ -105,13 +109,16 @@ export function SincronizarPrudentialPage() {
 
   const capitalItens = useMemo(() => (plano ? [...plano.capital.alteracoes, ...plano.capital.premioDiferente] : []), [plano]);
   const ipcaItens = plano?.capital.divergentes ?? [];
+  const grandesItens = plano?.capital.muitoDiferentes ?? [];
+  const faltantesItens = plano?.capital.faltantes ?? [];
 
   const totais = plano
     ? {
         status: sStatus ? plano.cancelamentos.length : 0,
         venc: sVenc ? plano.vencimentos.length : 0,
         atraso: sAtraso ? plano.atrasos.length : 0,
-        capital: (sCapital ? capitalItens.length : 0) + (sIpca ? ipcaItens.length : 0),
+        capital: (sCapital ? capitalItens.length : 0) + (sGrandes ? grandesItens.length : 0) + (sIpca ? ipcaItens.length : 0),
+        faltantes: sFaltantes ? faltantesItens.length : 0,
         detalhes: sDetalhes ? plano.detalhes.gravar.length : 0,
       }
     : null;
@@ -172,7 +179,8 @@ export function SincronizarPrudentialPage() {
       cancelamentos: sStatus ? plano.cancelamentos : [],
       vencimentos: sVenc ? plano.vencimentos.map((v) => ({ apoliceId: v.apoliceId, numero: v.numero, anterior: v.de })) : [],
       atrasos: sAtraso ? plano.atrasos.map((a) => ({ apoliceId: a.apoliceId, numero: a.numero, observacaoAnterior: a.de })) : [],
-      capital: [...(sCapital ? capitalItens : []), ...(sIpca ? ipcaItens : [])].map((c) => ({ coberturaId: c.coberturaId, apolice: c.apoliceNumero, cobertura: c.nome, capitalAnterior: c.de })),
+      coberturasCriadas: sFaltantes ? faltantesItens : [],
+      capital: [...(sCapital ? capitalItens : []), ...(sGrandes ? grandesItens : []), ...(sIpca ? ipcaItens : [])].map((c) => ({ coberturaId: c.coberturaId, apolice: c.apoliceNumero, cobertura: c.nome, capitalAnterior: c.de })),
       observacao: "Os dados da página 'Detalhes da Apólice' são recriados a cada sincronização a partir do arquivo da Prudential.",
     });
 
@@ -219,7 +227,7 @@ export function SincronizarPrudentialPage() {
     }
 
     // 3) Capital das coberturas
-    const capital = [...(sCapital ? capitalItens : []), ...(sIpca ? ipcaItens : [])];
+    const capital = [...(sCapital ? capitalItens : []), ...(sGrandes ? grandesItens : []), ...(sIpca ? ipcaItens : [])];
     if (capital.length > 0) {
       setEtapa("Atualizando capital das coberturas...");
       let ok = 0;
@@ -229,6 +237,23 @@ export function SincronizarPrudentialPage() {
         else ok++;
       });
       feitos.push(`${ok} coberturas com o capital atualizado`);
+    }
+
+    // 3b) Coberturas da Prudential que não existem no sistema
+    if (sFaltantes && faltantesItens.length > 0) {
+      setEtapa("Criando coberturas que faltam...");
+      const { error } = await supabase.from("coberturas").insert(
+        faltantesItens.map((f) => ({
+          apolice_id: f.apoliceId,
+          nome_cobertura: limparNomeCobertura(f.produto),
+          tipo: normalizarNomeCobertura(f.produto)?.tipo ?? "opcional",
+          status: "ativa",
+          premio_mensal: f.premio,
+          capital_segurado: f.capital,
+        })),
+      );
+      if (error) falhas.push(`Criar coberturas que faltam: ${error.message}`);
+      else feitos.push(`${faltantesItens.length} coberturas criadas`);
     }
 
     // 4) Dados da página "Detalhes da Apólice" (PDF reunião)
@@ -390,6 +415,23 @@ export function SincronizarPrudentialPage() {
           </Secao>
 
           <Secao
+            marcada={sGrandes}
+            onMarcar={setSGrandes}
+            titulo="Corrigir capital muito diferente do da Prudential"
+            descricao="O sistema tem um capital preenchido, mas a Prudential mostra um valor muito diferente (mais de +10% ou menor). Provável erro de cadastro: o capital passa a ser o da Prudential."
+            total={grandesItens.length}
+            destaque
+          >
+            <ul className="space-y-0.5">
+              {grandesItens.map((c) => (
+                <li key={c.coberturaId}>
+                  Apólice {c.apoliceNumero} · {c.nome.split(" por ")[0]}: {formatarMoeda(c.de)} → <strong>{formatarMoeda(c.para)}</strong>
+                </li>
+              ))}
+            </ul>
+          </Secao>
+
+          <Secao
             marcada={sIpca}
             onMarcar={setSIpca}
             titulo="Atualizar capital reajustado (IPCA)"
@@ -400,6 +442,22 @@ export function SincronizarPrudentialPage() {
               {ipcaItens.map((c) => (
                 <li key={c.coberturaId}>
                   Apólice {c.apoliceNumero} · {c.nome.split(" por ")[0]}: {formatarMoeda(c.de)} → <strong>{formatarMoeda(c.para)}</strong>
+                </li>
+              ))}
+            </ul>
+          </Secao>
+
+          <Secao
+            marcada={sFaltantes}
+            onMarcar={setSFaltantes}
+            titulo="Criar coberturas que existem na Prudential e faltam no sistema"
+            descricao="Coberturas ativas da apólice que o sistema não tem (por exemplo, uma cobertura que a importação juntou com outra de nome parecido). Serão criadas com o capital e o prêmio da Prudential."
+            total={faltantesItens.length}
+          >
+            <ul className="space-y-0.5">
+              {faltantesItens.map((f, i) => (
+                <li key={i}>
+                  Apólice {f.apoliceNumero} · {limparNomeCobertura(f.produto)}: capital <strong>{formatarMoeda(f.capital)}</strong> · prêmio {formatarMoeda(f.premio)}
                 </li>
               ))}
             </ul>
@@ -450,6 +508,7 @@ export function SincronizarPrudentialPage() {
             totais.venc ? `${totais.venc} vencimentos serão atualizados` : null,
             totais.atraso ? `${totais.atraso} avisos de atraso` : null,
             totais.capital ? `${totais.capital} capitais de cobertura` : null,
+            totais.faltantes ? `${totais.faltantes} coberturas criadas` : null,
             totais.detalhes ? `${totais.detalhes} páginas de apólice do PDF reunião` : null,
           ]
             .filter(Boolean)

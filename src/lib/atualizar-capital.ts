@@ -48,13 +48,25 @@ export interface ItemSemCorrespondencia {
   motivo: string;
 }
 
+export interface CoberturaFaltante {
+  apoliceId: string;
+  apoliceNumero: string;
+  produto: string;
+  capital: number;
+  premio: number;
+}
+
 export interface PlanoCapital {
   totalLinhas: number;
   linhasIgnoradas: number;
   alteracoes: AlteracaoCapital[];
   jaCorretas: number;
-  /** Cobertura com capital diferente de zero no banco e diferente do arquivo: nunca é sobrescrita. */
+  /** Capital diferente de zero no banco e um pouco maior no arquivo (até +10%, o reajuste anual pelo IPCA): só entra se o usuário optar. */
   divergentes: AlteracaoCapital[];
+  /** Capital diferente de zero no banco e muito diferente do arquivo (mais de +10% ou menor): provável erro de cadastro. */
+  muitoDiferentes: AlteracaoCapital[];
+  /** Coberturas ativas da Prudential que não existem no sistema (nenhuma cobertura do sistema ficou com elas). */
+  faltantes: CoberturaFaltante[];
   /** Capital zerado no banco, mas o prêmio da cobertura mudou desde a importação (provável reajuste): só entra se o usuário optar. */
   premioDiferente: AlteracaoCapital[];
   apolicesNaoEncontradas: string[];
@@ -112,14 +124,26 @@ export function planejarAtualizacaoCapital(
     alteracoes: [],
     jaCorretas: 0,
     divergentes: [],
+    muitoDiferentes: [],
+    faltantes: [],
     premioDiferente: [],
     apolicesNaoEncontradas: [],
     semCorrespondencia: [],
     apolicesSemSeguradora: [],
   };
   const apolicesVistas = new Set<string>();
-  const usadas = new Set<string>();
   const apolicesAusentes = new Set<string>();
+
+  interface LinhaValida {
+    numero: string;
+    apoliceIds: string[];
+    produto: string;
+    chave: string;
+    novoCapital: number;
+    premioArquivo: number;
+    ativaNoArquivo: boolean;
+  }
+  const validas: LinhaValida[] = [];
 
   for (const linha of linhas) {
     const numeroBruto = (linha[colunas.apolice] ?? "").trim();
@@ -130,7 +154,8 @@ export function planejarAtualizacaoCapital(
       continue;
     }
     // A importação ignorou coberturas rejeitadas/desistidas; aqui também.
-    if (colunas.statusCobertura && normalizarStatusCobertura(linha[colunas.statusCobertura] ?? "") === STATUS_REJEITADA) {
+    const statusLinha = colunas.statusCobertura ? normalizarStatusCobertura(linha[colunas.statusCobertura] ?? "") : null;
+    if (statusLinha === STATUS_REJEITADA) {
       plano.linhasIgnoradas++;
       continue;
     }
@@ -149,38 +174,62 @@ export function planejarAtualizacaoCapital(
       if (a && !a.seguradora?.trim()) plano.apolicesSemSeguradora.push({ id, numero });
     }
 
-    const novoCapital = paraNumero(beneficioBruto);
-    const chave = chaveCobertura(produto);
-    let candidatas = apoliceIds
-      .flatMap((id) => coberturasPorApolice.get(id) ?? [])
-      .filter((c) => !usadas.has(c.id) && chaveCobertura(c.nome_cobertura) === chave);
-
-    const premioArquivo = colunas.premio ? paraNumero(linha[colunas.premio] ?? "") : 0;
-    if (candidatas.length > 1 && premioArquivo > 0) {
-      const porPremio = candidatas.filter((c) => Math.abs((c.premio_mensal ?? 0) - premioArquivo) < PREMIO_TOLERANCIA);
-      if (porPremio.length >= 1) candidatas = porPremio;
-    }
-
-    if (candidatas.length === 0) {
-      plano.semCorrespondencia.push({ apoliceNumero: numero, produto, motivo: "cobertura não encontrada no banco" });
-      continue;
-    }
-    if (candidatas.length > 1) {
-      plano.semCorrespondencia.push({ apoliceNumero: numero, produto, motivo: "mais de uma cobertura parecida no banco" });
-      continue;
-    }
-
-    const cobertura = candidatas[0];
-    const premioBanco = cobertura.premio_mensal ?? 0;
-    const premioMudou = premioArquivo > 0 && premioBanco > 0 && Math.abs(premioBanco - premioArquivo) >= PREMIO_TOLERANCIA;
-
-    usadas.add(cobertura.id);
-    const atual = cobertura.capital_segurado ?? 0;
-    const item: AlteracaoCapital = { coberturaId: cobertura.id, apoliceNumero: numero, nome: cobertura.nome_cobertura, de: atual, para: novoCapital };
-    if (Math.abs(atual - novoCapital) < 0.005) plano.jaCorretas++;
-    else if (atual === 0) (premioMudou ? plano.premioDiferente : plano.alteracoes).push(item);
-    else plano.divergentes.push(item);
+    validas.push({
+      numero,
+      apoliceIds,
+      produto,
+      chave: chaveCobertura(produto),
+      novoCapital: paraNumero(beneficioBruto),
+      premioArquivo: colunas.premio ? paraNumero(linha[colunas.premio] ?? "") : 0,
+      ativaNoArquivo: statusLinha === "ativa" || statusLinha === null,
+    });
   }
+
+  // Casamento linha da planilha × cobertura do sistema: pela proximidade do prêmio dentro de cada grupo
+  // (mesma apólice e mesmo nome canônico), para que coberturas com nome parecido, como "Doenças Graves Plus"
+  // e "Doenças Ampliadas", não se confundam.
+  const grupos = new Map<string, number[]>();
+  validas.forEach((v, i) => {
+    const k = v.apoliceIds.join(",") + "|" + v.chave;
+    grupos.set(k, [...(grupos.get(k) ?? []), i]);
+  });
+  const atribuida = new Map<number, CoberturaDb>();
+  const usadas = new Set<string>();
+  for (const indices of grupos.values()) {
+    const v0 = validas[indices[0]];
+    const candidatas = v0.apoliceIds.flatMap((id) => coberturasPorApolice.get(id) ?? []).filter((c) => chaveCobertura(c.nome_cobertura) === v0.chave);
+    const pares: { i: number; c: CoberturaDb; custo: number }[] = [];
+    for (const i of indices)
+      for (const c of candidatas) {
+        const pa = validas[i].premioArquivo;
+        const pb = c.premio_mensal ?? 0;
+        pares.push({ i, c, custo: pa > 0 && pb > 0 ? Math.abs(pa - pb) : 1e6 });
+      }
+    pares.sort((x, y) => x.custo - y.custo || x.i - y.i);
+    for (const par of pares) {
+      if (atribuida.has(par.i) || usadas.has(par.c.id)) continue;
+      atribuida.set(par.i, par.c);
+      usadas.add(par.c.id);
+    }
+  }
+
+  validas.forEach((v, i) => {
+    const cobertura = atribuida.get(i);
+    if (!cobertura) {
+      plano.semCorrespondencia.push({ apoliceNumero: v.numero, produto: v.produto, motivo: "cobertura não encontrada no banco" });
+      if (v.ativaNoArquivo)
+        plano.faltantes.push({ apoliceId: v.apoliceIds[0], apoliceNumero: v.numero, produto: v.produto, capital: v.novoCapital, premio: v.premioArquivo });
+      return;
+    }
+    const premioBanco = cobertura.premio_mensal ?? 0;
+    const premioMudou = v.premioArquivo > 0 && premioBanco > 0 && Math.abs(premioBanco - v.premioArquivo) >= PREMIO_TOLERANCIA;
+    const atual = cobertura.capital_segurado ?? 0;
+    const item: AlteracaoCapital = { coberturaId: cobertura.id, apoliceNumero: v.numero, nome: cobertura.nome_cobertura, de: atual, para: v.novoCapital };
+    if (Math.abs(atual - v.novoCapital) < 0.005) plano.jaCorretas++;
+    else if (atual === 0) (premioMudou ? plano.premioDiferente : plano.alteracoes).push(item);
+    else if (v.novoCapital >= atual && v.novoCapital <= atual * 1.1) plano.divergentes.push(item);
+    else plano.muitoDiferentes.push(item);
+  });
 
   plano.apolicesNaoEncontradas = [...apolicesAusentes];
   return plano;
