@@ -61,6 +61,7 @@ const TITULOS: Record<string, string> = {
   "/importar/capital": "Atualizar capital segurado",
   "/importar/vencimentos": "Importar vencimentos",
   "/importar/apolices": "Importar dados das apólices",
+  "/importar/sincronizar": "Sincronizar com a Prudential",
 };
 
 function tituloDaRota(pathname: string): string {

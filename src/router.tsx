@@ -17,6 +17,7 @@ import { ImportarClientesPage } from "@/pages/importar/ImportarClientesPage";
 import { AtualizarCapitalPage } from "@/pages/importar/AtualizarCapitalPage";
 import { ImportarVencimentosPage } from "@/pages/importar/ImportarVencimentosPage";
 import { ImportarDetalhesApolicesPage } from "@/pages/importar/ImportarDetalhesApolicesPage";
+import { SincronizarPrudentialPage } from "@/pages/importar/SincronizarPrudentialPage";
 import { GeradorPrevidenciaPage } from "@/pages/previdencia/GeradorPrevidenciaPage";
 import NotFound from "@/pages/NotFound";
 
@@ -71,6 +72,7 @@ export const routers = [
       { path: "importar/capital", element: <AtualizarCapitalPage /> },
       { path: "importar/vencimentos", element: <ImportarVencimentosPage /> },
       { path: "importar/apolices", element: <ImportarDetalhesApolicesPage /> },
+      { path: "importar/sincronizar", element: <SincronizarPrudentialPage /> },
       { path: "*", element: <NotFound /> },
     ],
   },

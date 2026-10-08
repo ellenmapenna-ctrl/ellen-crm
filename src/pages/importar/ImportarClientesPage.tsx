@@ -681,6 +681,9 @@ export function ImportarClientesPage() {
         <Button variant="outline" asChild>
           <Link to="/importar/apolices">Importar dados das apólices</Link>
         </Button>
+        <Button asChild>
+          <Link to="/importar/sincronizar">Sincronizar com a Prudential</Link>
+        </Button>
       </PageHeader>
 
       {/* Stepper */}
