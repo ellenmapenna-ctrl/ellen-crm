@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { CoberturasDaApolice } from "@/components/revisitas/CoberturasDaApolice";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatarData, formatarMoeda, paraNumero } from "@/lib/format";
+import { formatarMoeda, paraNumero } from "@/lib/format";
+import { diaDoVencimento } from "@/lib/vencimentos";
 import { agruparApolicesAtivas } from "@/lib/apolices-cliente";
 import type { ApoliceWithCoberturas } from "@/lib/types";
 
@@ -12,6 +14,14 @@ interface Props {
 
 export function ApolicesAtuaisSeletor({ apolices, selecionadas, onChange }: Props) {
   const grupos = useMemo(() => agruparApolicesAtivas(apolices), [apolices]);
+  const [recolhidas, setRecolhidas] = useState<Set<string>>(new Set());
+  const alternarCoberturas = (id: string) =>
+    setRecolhidas((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const naoAtivas = apolices.length - grupos.reduce((n, g) => n + g.apolices.length, 0);
 
   const alternarApolice = (id: string, marcada: boolean) =>
@@ -49,15 +59,26 @@ export function ApolicesAtuaisSeletor({ apolices, selecionadas, onChange }: Prop
             <div className="divide-y">
               {g.apolices.map((a) => {
                 const ativas = (a.coberturas ?? []).filter((c) => c.status === "ativa").length;
+                const aberta = !recolhidas.has(a.id);
                 return (
-                  <label key={a.id} className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-sm">
-                    <Checkbox checked={selecionadas.includes(a.id)} onCheckedChange={(v) => alternarApolice(a.id, v === true)} />
-                    <span className="font-mono text-xs font-semibold">{a.numero_apolice || "sem número"}</span>
-                    <span className="text-xs text-muted-foreground">{ativas} cobertura{ativas === 1 ? "" : "s"}</span>
-                    <span className="text-xs text-muted-foreground">Prêmio {formatarMoeda(paraNumero(a.premio_mensal_total))}/mês</span>
-                    <span className="text-xs text-muted-foreground">Capital {formatarMoeda(paraNumero(a.capital_segurado_total))}</span>
-                    <span className="text-xs text-muted-foreground">Vence {formatarData(a.vencimento_apolice)}</span>
-                  </label>
+                  <div key={a.id}>
+                    <label className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-sm">
+                      <Checkbox checked={selecionadas.includes(a.id)} onCheckedChange={(v) => alternarApolice(a.id, v === true)} />
+                      <span className="font-mono text-xs font-semibold">{a.numero_apolice || "sem número"}</span>
+                      <span className="text-xs text-muted-foreground">{ativas} cobertura{ativas === 1 ? "" : "s"}</span>
+                      <span className="text-xs text-muted-foreground">Prêmio {formatarMoeda(paraNumero(a.premio_mensal_total))}/mês</span>
+                      <span className="text-xs text-muted-foreground">Capital {formatarMoeda(paraNumero(a.capital_segurado_total))}</span>
+                      {diaDoVencimento(a.proximo_vencimento_premio ?? null) && (
+                        <span className="text-xs text-muted-foreground">Dia de vencimento {diaDoVencimento(a.proximo_vencimento_premio ?? null)}</span>
+                      )}
+                    </label>
+                    <div className="px-3 pb-1">
+                      <button type="button" className="text-[11px] text-primary underline" onClick={() => alternarCoberturas(a.id)}>
+                        {aberta ? "Ocultar coberturas" : "Ver coberturas"}
+                      </button>
+                    </div>
+                    {aberta && <CoberturasDaApolice coberturas={a.coberturas ?? []} />}
+                  </div>
                 );
               })}
             </div>

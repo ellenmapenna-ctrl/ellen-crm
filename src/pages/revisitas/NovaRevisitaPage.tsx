@@ -11,6 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ApolicesAtuaisSeletor } from "@/components/revisitas/ApolicesAtuaisSeletor";
 import { ApresentacaoSeletor } from "@/components/revisitas/ApresentacaoSeletor";
+import { CoberturasDaApolice } from "@/components/revisitas/CoberturasDaApolice";
 import { useCliente, useClientes } from "@/hooks/useClientes";
 import { buscarPrevidenciaPdfBase64, usePrevidenciaEstudoInfo } from "@/hooks/usePrevidenciaEstudo";
 import { useCriarRevisita } from "@/hooks/useRevisitas";
@@ -461,6 +462,19 @@ export function NovaRevisitaPage() {
                     <span>
                       Usando {apolicesSelecionadas.length} apólice{apolicesSelecionadas.length > 1 ? "s" : ""} do sistema como apólice atual — não precisa enviar o PDF.
                     </span>
+                    <div className="flex flex-col gap-2">
+                      {apolicesCliente
+                        .filter((a) => apolicesSelecionadas.includes(a.id))
+                        .map((a) => (
+                          <div key={a.id} className="rounded-md border border-emerald-200 bg-white text-foreground">
+                            <p className="px-3 pt-2 text-xs font-semibold">
+                              Apólice {a.numero_apolice || "sem número"}
+                              {a.seguradora ? ` · ${a.seguradora}` : ""}
+                            </p>
+                            <CoberturasDaApolice coberturas={a.coberturas ?? []} />
+                          </div>
+                        ))}
+                    </div>
                     <button type="button" className="self-start text-xs underline" onClick={() => setUsarPdfApolice(true)}>
                       Enviar o PDF da apólice em vez disso
                     </button>
