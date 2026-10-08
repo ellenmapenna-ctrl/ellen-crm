@@ -577,6 +577,7 @@ export function NovaRevisitaPage() {
                 </label>
               </div>
             </div>
+            {temResgateImport && (
             <div className="mt-5 border-t pt-5">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estudo de previdência</p>
               <PrevidenciaNaRevisita
@@ -588,6 +589,7 @@ export function NovaRevisitaPage() {
                 }}
               />
             </div>
+            )}
           </Etapa>
 
           <Etapa numero={3} titulo="Proposta nova e geração com IA" descricao="Envie a(s) proposta(s) nova(s): a IA preenche a comparação da etapa 4 usando a apólice atual da etapa 1.">
