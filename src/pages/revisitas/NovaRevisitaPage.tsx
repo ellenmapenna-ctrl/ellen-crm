@@ -11,6 +11,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ApolicesAtuaisSeletor } from "@/components/revisitas/ApolicesAtuaisSeletor";
 import { ApresentacaoSeletor } from "@/components/revisitas/ApresentacaoSeletor";
+import { PrevidenciaNaRevisita } from "@/components/revisitas/PrevidenciaNaRevisita";
+import { aplicarPrevidenciaNaRevisita } from "@/lib/previdencia-na-revisita";
 import { CoberturasDaApolice } from "@/components/revisitas/CoberturasDaApolice";
 import { useCliente, useClientes } from "@/hooks/useClientes";
 import { buscarPrevidenciaPdfBase64, usePrevidenciaEstudoInfo } from "@/hooks/usePrevidenciaEstudo";
@@ -731,6 +733,14 @@ export function NovaRevisitaPage() {
                 </label>
               </div>
             </div>
+          </Secao>
+
+          <Secao titulo="Previdência (estudo)">
+            <PrevidenciaNaRevisita
+              clienteId={clienteId || null}
+              clienteNome={clienteNome}
+              onAplicar={(input, resultado) => setDados((prev) => aplicarPrevidenciaNaRevisita(prev, input, resultado))}
+            />
           </Secao>
 
           <Secao titulo="Apresentação da seguradora">

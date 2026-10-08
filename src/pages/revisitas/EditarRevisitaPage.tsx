@@ -17,6 +17,8 @@ import { renderRevisitaHtml, type RevisitaCobertura, type RevisitaDados, type Re
 import { BaixarPdfButton } from "./BaixarPdfButton";
 import { BaixarPdfReuniaoButton } from "./BaixarPdfReuniaoButton";
 import { ApresentacaoSeletor } from "@/components/revisitas/ApresentacaoSeletor";
+import { PrevidenciaNaRevisita } from "@/components/revisitas/PrevidenciaNaRevisita";
+import { aplicarPrevidenciaNaRevisita } from "@/lib/previdencia-na-revisita";
 
 const FORMATOS: { valor: RevisitaFormato; nome: string; desc: string }[] = [
   { valor: "vanguarda", nome: "Vanguarda", desc: "Banner diagonal em destaque, com rodapé de contatos em ícones." },
@@ -428,6 +430,14 @@ export function EditarRevisitaPage() {
                 <Input value={dados.recomendacaoTexto ?? ""} onChange={(e) => atualizarCampo("recomendacaoTexto", e.target.value || undefined)} />
               </div>
             </div>
+          </Secao>
+
+          <Secao titulo="Previdência (estudo)">
+            <PrevidenciaNaRevisita
+              clienteId={data.cliente_id}
+              clienteNome={dados.clienteNome}
+              onAplicar={(input, resultado) => setDados((prev) => (prev ? aplicarPrevidenciaNaRevisita(prev, input, resultado) : prev))}
+            />
           </Secao>
 
           <Secao titulo="Apresentação da seguradora">
