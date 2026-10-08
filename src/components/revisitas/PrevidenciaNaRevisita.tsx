@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronDown, ChevronUp, PiggyBank } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CheckCircle2 } from "lucide-react";
 import { GeradorPrevidencia } from "@/components/previdencia/GeradorPrevidencia";
 import { formatarMoeda } from "@/lib/format";
 import type { PrevidenciaInput, PrevidenciaResultado } from "@/lib/previdencia-calc";
@@ -15,22 +14,10 @@ interface Props {
 
 /** Gerador de previdência dentro da revisita: mesmos campos, prévia e PDF da aba Previdência, ligado ao cliente da revisita. */
 export function PrevidenciaNaRevisita({ clienteId, clienteNome, onAplicar }: Props) {
-  const [aberto, setAberto] = useState(false);
   const [ultimo, setUltimo] = useState<{ input: PrevidenciaInput; resultado: PrevidenciaResultado } | null>(null);
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="outline" size="sm" onClick={() => setAberto((v) => !v)}>
-          <PiggyBank className="size-4" />
-          {aberto ? "Fechar gerador de previdência" : "Abrir gerador de previdência"}
-          {aberto ? <ChevronUp className="size-3.5 opacity-60" /> : <ChevronDown className="size-3.5 opacity-60" />}
-        </Button>
-        <span className="text-xs text-muted-foreground">
-          Faça o estudo aqui, sem sair da revisita. Aplique o resultado no comparativo com um clique; se baixar o PDF, ele também fica guardado no cliente.
-        </span>
-      </div>
-
       {ultimo && (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-indigo-200 bg-indigo-50/60 p-3 text-sm">
           <div>
@@ -48,7 +35,7 @@ export function PrevidenciaNaRevisita({ clienteId, clienteNome, onAplicar }: Pro
         </div>
       )}
 
-      {aberto && (
+      {(
         <div className="rounded-lg border bg-white p-3">
           <GeradorPrevidencia
             embutido
