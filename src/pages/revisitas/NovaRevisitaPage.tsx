@@ -538,25 +538,18 @@ export function NovaRevisitaPage() {
                       />
                     </div>
                     <div>
-                      <Rotulo>Proposta de previdência (PDF)</Rotulo>
-                      {usandoEstudoSalvo ? (
-                        <div className="flex flex-col gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 p-2.5 text-sm text-emerald-900">
-                          <span>
-                            Usando o último estudo de previdência gerado para este cliente
-                            {estudoSalvo?.updated_at ? ` (${new Date(estudoSalvo.updated_at).toLocaleDateString("pt-BR")})` : ""}.
-                          </span>
-                          <button type="button" className="self-start text-xs underline" onClick={() => setTrocarPrevidencia(true)}>
-                            Enviar outro arquivo
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <Input type="file" accept="application/pdf" className="bg-white" onChange={(e) => setPrevidenciaPdf(e.target.files?.[0] ?? null)} />
-                          {!estudoSalvo && clienteId && (
-                            <p className="mt-1 text-xs text-muted-foreground">Este cliente ainda não tem estudo guardado. Gere um em Previdência para ele ser usado automaticamente.</p>
-                          )}
-                        </>
-                      )}
+                      <Rotulo>Proposta de previdência</Rotulo>
+                      <PrevidenciaNaRevisita
+                        clienteId={clienteId || null}
+                        clienteNome={clienteNome}
+                        usandoEstudoSalvo={usandoEstudoSalvo}
+                        onEnviarOutroArquivo={() => setTrocarPrevidencia(true)}
+                        onArquivo={setPrevidenciaPdf}
+                        onAplicar={(input, resultado) => {
+                          setPrevidenciaAplicada({ input, resultado });
+                          setDados((prev) => aplicarPrevidenciaNaRevisita(prev, input, resultado));
+                        }}
+                      />
                     </div>
                   </div>
                 )}
@@ -577,19 +570,6 @@ export function NovaRevisitaPage() {
                 </label>
               </div>
             </div>
-            {temResgateImport && (
-            <div className="mt-5 border-t pt-5">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estudo de previdência</p>
-              <PrevidenciaNaRevisita
-                clienteId={clienteId || null}
-                clienteNome={clienteNome}
-                onAplicar={(input, resultado) => {
-                  setPrevidenciaAplicada({ input, resultado });
-                  setDados((prev) => aplicarPrevidenciaNaRevisita(prev, input, resultado));
-                }}
-              />
-            </div>
-            )}
           </Etapa>
 
           <Etapa numero={3} titulo="Proposta nova e geração com IA" descricao="Envie a(s) proposta(s) nova(s): a IA preenche a comparação da etapa 4 usando a apólice atual da etapa 1.">
