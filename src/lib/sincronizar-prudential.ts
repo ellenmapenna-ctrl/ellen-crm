@@ -19,6 +19,7 @@ export interface ApoliceSync {
   cliente_id: string;
   numero_apolice: string | null;
   status: string;
+  capital_segurado_total: number | null;
   proximo_vencimento_premio: string | null;
   forma_pagamento: string | null;
   responsavel_pagamento: string | null;
@@ -159,6 +160,48 @@ export interface PlanoSincronizacao {
     /** canceladas/suspensas no sistema que a Prudential mostra como ativas (não são alteradas) */
     reativadasNoArquivo: ItemApolice[];
   };
+}
+
+export interface MudancaTotal extends ItemApolice {
+  de: number;
+  para: number;
+}
+
+/**
+ * Capital total de cada apólice igual à soma do capital das suas coberturas ativas (já considerando as
+ * correções escolhidas). Só entra apólice cujas coberturas ativas estão todas na Prudential: se o sistema
+ * tem uma cobertura que a Prudential não tem, a apólice fica como está.
+ */
+export function planejarTotais(
+  banco: BancoSync,
+  plano: PlanoSincronizacao,
+  sel: { capital: boolean; grandes: boolean; ipca: boolean; faltantes: boolean },
+): { mudancas: MudancaTotal[]; deixadasComoEstao: ItemApolice[] } {
+  const capital = new Map(banco.coberturas.map((c) => [c.id, c.capital_segurado ?? 0]));
+  const aplicar = [...(sel.capital ? [...plano.capital.alteracoes, ...plano.capital.premioDiferente] : []), ...(sel.grandes ? plano.capital.muitoDiferentes : []), ...(sel.ipca ? plano.capital.divergentes : [])];
+  for (const x of aplicar) capital.set(x.coberturaId, x.para);
+  const casadas = new Set(plano.capital.coberturasCasadas);
+  const cancelando = new Set(plano.cancelamentos.map((c) => c.apoliceId));
+  const faltantesPorApolice = new Map<string, number>();
+  if (sel.faltantes) for (const f of plano.capital.faltantes) faltantesPorApolice.set(f.apoliceId, (faltantesPorApolice.get(f.apoliceId) ?? 0) + f.capital);
+
+  const mudancas: MudancaTotal[] = [];
+  const deixadasComoEstao: ItemApolice[] = [];
+  for (const a of banco.apolices) {
+    if (a.status !== "ativa" || cancelando.has(a.id)) continue;
+    const ativas = banco.coberturas.filter((c) => c.apolice_id === a.id && c.status === "ativa");
+    if (!ativas.some((c) => casadas.has(c.id))) continue; // apólice que não está no arquivo
+    const nome = banco.nomeCliente.get(a.cliente_id) ?? "—";
+    const item = { apoliceId: a.id, numero: a.numero_apolice ?? "", cliente: nome };
+    if (ativas.some((c) => !casadas.has(c.id))) {
+      deixadasComoEstao.push(item);
+      continue;
+    }
+    const soma = ativas.reduce((s, c) => s + (capital.get(c.id) ?? 0), 0) + (faltantesPorApolice.get(a.id) ?? 0);
+    const atual = a.capital_segurado_total ?? 0;
+    if (Math.abs(atual - soma) >= 1) mudancas.push({ ...item, de: atual, para: Math.round(soma * 100) / 100 });
+  }
+  return { mudancas, deixadasComoEstao };
 }
 
 const REGEX_ATRASO_AUTOMATICO = /^EM ATRASO/i;

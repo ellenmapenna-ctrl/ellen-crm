@@ -67,6 +67,8 @@ export interface PlanoCapital {
   muitoDiferentes: AlteracaoCapital[];
   /** Coberturas ativas da Prudential que não existem no sistema (nenhuma cobertura do sistema ficou com elas). */
   faltantes: CoberturaFaltante[];
+  /** ids das coberturas do sistema que foram casadas com uma linha da Prudential. */
+  coberturasCasadas: string[];
   /** Capital zerado no banco, mas o prêmio da cobertura mudou desde a importação (provável reajuste): só entra se o usuário optar. */
   premioDiferente: AlteracaoCapital[];
   apolicesNaoEncontradas: string[];
@@ -126,6 +128,7 @@ export function planejarAtualizacaoCapital(
     divergentes: [],
     muitoDiferentes: [],
     faltantes: [],
+    coberturasCasadas: [],
     premioDiferente: [],
     apolicesNaoEncontradas: [],
     semCorrespondencia: [],
@@ -231,6 +234,7 @@ export function planejarAtualizacaoCapital(
     else plano.muitoDiferentes.push(item);
   });
 
+  plano.coberturasCasadas = [...usadas];
   plano.apolicesNaoEncontradas = [...apolicesAusentes];
   return plano;
 }

@@ -20,7 +20,9 @@ import type { CoberturaDb } from "@/lib/atualizar-capital";
 import {
   detectarColunasSincronizacao,
   planejarSincronizacao,
+  planejarTotais,
   type ApoliceSync,
+  type BancoSync,
   type PlanoSincronizacao,
 } from "@/lib/sincronizar-prudential";
 
@@ -56,7 +58,9 @@ function Secao({
   total,
   children,
   destaque,
+  extra,
 }: {
+  extra?: React.ReactNode;
   marcada: boolean;
   onMarcar: (v: boolean) => void;
   titulo: string;
@@ -77,6 +81,7 @@ function Secao({
           <span className="mt-0.5 block text-xs text-muted-foreground">{descricao}</span>
         </span>
       </label>
+      {extra}
       {total > 0 && children && (
         <details className="mt-2 pl-7 text-xs">
           <summary className="cursor-pointer text-primary">Ver lista</summary>
@@ -99,6 +104,9 @@ export function SincronizarPrudentialPage() {
   const [sIpca, setSIpca] = useState(false);
   const [sGrandes, setSGrandes] = useState(true);
   const [sFaltantes, setSFaltantes] = useState(true);
+  const [sTotais, setSTotais] = useState(true);
+  const [sVencSoVazias, setSVencSoVazias] = useState(false);
+  const [banco, setBanco] = useState<BancoSync | null>(null);
   const [sDetalhes, setSDetalhes] = useState(true);
   const [confirmando, setConfirmando] = useState(false);
   const [aplicando, setAplicando] = useState(false);
@@ -111,14 +119,21 @@ export function SincronizarPrudentialPage() {
   const ipcaItens = plano?.capital.divergentes ?? [];
   const grandesItens = plano?.capital.muitoDiferentes ?? [];
   const faltantesItens = plano?.capital.faltantes ?? [];
+  const vencItens = useMemo(() => (plano ? (sVencSoVazias ? plano.vencimentos.filter((v) => !v.de.data) : plano.vencimentos) : []), [plano, sVencSoVazias]);
+  const totaisPlano = useMemo(
+    () => (plano && banco ? planejarTotais(banco, plano, { capital: sCapital, grandes: sGrandes, ipca: sIpca, faltantes: sFaltantes }) : null),
+    [plano, banco, sCapital, sGrandes, sIpca, sFaltantes],
+  );
+  const totaisItens = totaisPlano?.mudancas ?? [];
 
   const totais = plano
     ? {
         status: sStatus ? plano.cancelamentos.length : 0,
-        venc: sVenc ? plano.vencimentos.length : 0,
+        venc: sVenc ? vencItens.length : 0,
         atraso: sAtraso ? plano.atrasos.length : 0,
         capital: (sCapital ? capitalItens.length : 0) + (sGrandes ? grandesItens.length : 0) + (sIpca ? ipcaItens.length : 0),
         faltantes: sFaltantes ? faltantesItens.length : 0,
+        totais: sTotais ? totaisItens.length : 0,
         detalhes: sDetalhes ? plano.detalhes.gravar.length : 0,
       }
     : null;
@@ -141,7 +156,7 @@ export function SincronizarPrudentialPage() {
       let banco;
       try {
         const [apolices, coberturas, clientes, detalhes] = await Promise.all([
-          buscarTudo<ApoliceSync>("apolices", "id, cliente_id, numero_apolice, status, proximo_vencimento_premio, forma_pagamento, responsavel_pagamento, observacao_vencimento", "id"),
+          buscarTudo<ApoliceSync>("apolices", "id, cliente_id, numero_apolice, status, capital_segurado_total, proximo_vencimento_premio, forma_pagamento, responsavel_pagamento, observacao_vencimento", "id"),
           buscarTudo<CoberturaDb>("coberturas", "id, apolice_id, nome_cobertura, status, capital_segurado, premio_mensal", "id"),
           buscarTudo<{ id: string; nome_completo: string }>("clientes", "id, nome_completo", "id"),
           buscarTudo<{ apolice_id: string }>("apolice_detalhes", "apolice_id", "apolice_id"),
@@ -156,6 +171,7 @@ export function SincronizarPrudentialPage() {
         setFalhaColunas(true);
         return;
       }
+      setBanco(banco);
       setPlano(planejarSincronizacao(csv.linhas, colunas, banco));
       setNomeArquivo(file.name);
     } catch (err) {
@@ -177,7 +193,8 @@ export function SincronizarPrudentialPage() {
       geradoEm: agora,
       arquivo: nomeArquivo,
       cancelamentos: sStatus ? plano.cancelamentos : [],
-      vencimentos: sVenc ? plano.vencimentos.map((v) => ({ apoliceId: v.apoliceId, numero: v.numero, anterior: v.de })) : [],
+      totaisDeCapital: sTotais ? totaisItens.map((t) => ({ apoliceId: t.apoliceId, numero: t.numero, totalAnterior: t.de })) : [],
+      vencimentos: sVenc ? vencItens.map((v) => ({ apoliceId: v.apoliceId, numero: v.numero, anterior: v.de })) : [],
       atrasos: sAtraso ? plano.atrasos.map((a) => ({ apoliceId: a.apoliceId, numero: a.numero, observacaoAnterior: a.de })) : [],
       coberturasCriadas: sFaltantes ? faltantesItens : [],
       capital: [...(sCapital ? capitalItens : []), ...(sGrandes ? grandesItens : []), ...(sIpca ? ipcaItens : [])].map((c) => ({ coberturaId: c.coberturaId, apolice: c.apoliceNumero, cobertura: c.nome, capitalAnterior: c.de })),
@@ -213,8 +230,9 @@ export function SincronizarPrudentialPage() {
       return patches.get(id)!.patch;
     };
     if (sVenc)
-      for (const v of plano.vencimentos) Object.assign(pegar(v.apoliceId, v.numero), { proximo_vencimento_premio: v.para.data, forma_pagamento: v.para.forma, responsavel_pagamento: v.para.responsavel, vencimento_premio_atualizado_em: agora });
+      for (const v of vencItens) Object.assign(pegar(v.apoliceId, v.numero), { proximo_vencimento_premio: v.para.data, forma_pagamento: v.para.forma, responsavel_pagamento: v.para.responsavel, vencimento_premio_atualizado_em: agora });
     if (sAtraso) for (const a of plano.atrasos) Object.assign(pegar(a.apoliceId, a.numero), { observacao_vencimento: a.para });
+    if (sTotais) for (const t of totaisItens) Object.assign(pegar(t.apoliceId, t.numero), { capital_segurado_total: t.para });
     if (patches.size > 0) {
       setEtapa("Atualizando vencimentos e atrasos...");
       let ok = 0;
@@ -223,7 +241,7 @@ export function SincronizarPrudentialPage() {
         if (r.error || !r.data?.length) falhas.push(`Apólice ${numero}: ${r.error?.message ?? "nenhuma linha atualizada"}`);
         else ok++;
       });
-      feitos.push(`${ok} apólices com vencimento/atraso atualizados`);
+      feitos.push(`${ok} apólices com vencimento, atraso ou capital total atualizados`);
     }
 
     // 3) Capital das coberturas
@@ -369,10 +387,21 @@ export function SincronizarPrudentialPage() {
             onMarcar={setSVenc}
             titulo="Vencimento do prêmio, forma de pagamento e responsável"
             descricao={`Atualiza a data do próximo vencimento das apólices ativas. ${plano.vencimentosInalterados} já estão iguais e não mudam.`}
-            total={plano.vencimentos.length}
+            total={vencItens.length}
+            extra={
+              <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-md bg-muted/40 p-2 pl-3 text-xs">
+                <Checkbox checked={sVencSoVazias} onCheckedChange={(v) => setSVencSoVazias(!!v)} className="mt-0.5" />
+                <span>
+                  <span className="font-medium">Não trocar datas que já estão preenchidas (só preencher as vazias)</span>
+                  <span className="block text-muted-foreground">
+                    Use para proteger datas que você colocou à mão. {plano.vencimentos.filter((v) => v.de.data).length} das mudanças abaixo trocariam uma data que já existe.
+                  </span>
+                </span>
+              </label>
+            }
           >
             <ul className="space-y-0.5">
-              {plano.vencimentos.map((v) => (
+              {vencItens.map((v) => (
                 <li key={v.apoliceId}>
                   <span className="font-medium">{v.cliente}</span>: {v.de.data ? formatarData(v.de.data) : "sem data"} → <strong>{formatarData(v.para.data)}</strong>
                   {v.para.forma ? ` · ${v.para.forma}` : ""}
@@ -464,6 +493,22 @@ export function SincronizarPrudentialPage() {
           </Secao>
 
           <Secao
+            marcada={sTotais}
+            onMarcar={setSTotais}
+            titulo="Igualar o capital total da apólice à soma das coberturas"
+            descricao={`Deixa o total de cada apólice igual à soma do capital das suas coberturas ativas (já com as correções marcadas acima). Apólices com cobertura que a Prudential não tem ficam como estão${totaisPlano && totaisPlano.deixadasComoEstao.length > 0 ? `: ${totaisPlano.deixadasComoEstao.map((x) => x.cliente).join(", ")}` : ""}.`}
+            total={totaisItens.length}
+          >
+            <ul className="space-y-0.5">
+              {totaisItens.map((t) => (
+                <li key={t.apoliceId}>
+                  <span className="font-medium">{t.cliente}</span> · apólice {t.numero}: {formatarMoeda(t.de)} → <strong>{formatarMoeda(t.para)}</strong>
+                </li>
+              ))}
+            </ul>
+          </Secao>
+
+          <Secao
             marcada={sDetalhes}
             onMarcar={setSDetalhes}
             titulo="Dados da página da apólice (PDF reunião)"
@@ -509,6 +554,7 @@ export function SincronizarPrudentialPage() {
             totais.atraso ? `${totais.atraso} avisos de atraso` : null,
             totais.capital ? `${totais.capital} capitais de cobertura` : null,
             totais.faltantes ? `${totais.faltantes} coberturas criadas` : null,
+            totais.totais ? `${totais.totais} capitais totais de apólice` : null,
             totais.detalhes ? `${totais.detalhes} páginas de apólice do PDF reunião` : null,
           ]
             .filter(Boolean)
