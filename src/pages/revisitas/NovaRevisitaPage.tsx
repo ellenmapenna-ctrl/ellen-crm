@@ -11,6 +11,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ApolicesAtuaisSeletor } from "@/components/revisitas/ApolicesAtuaisSeletor";
 import { ApresentacaoSeletor } from "@/components/revisitas/ApresentacaoSeletor";
+import { PrevidenciaNaRevisita } from "@/components/revisitas/PrevidenciaNaRevisita";
+import { aplicarPrevidenciaNaRevisita } from "@/lib/previdencia-na-revisita";
+import type { PrevidenciaInput, PrevidenciaResultado } from "@/lib/previdencia-calc";
 import { CoberturasDaApolice } from "@/components/revisitas/CoberturasDaApolice";
 import { useCliente, useClientes } from "@/hooks/useClientes";
 import { buscarPrevidenciaPdfBase64, usePrevidenciaEstudoInfo } from "@/hooks/usePrevidenciaEstudo";
@@ -113,6 +116,22 @@ function Secao({ titulo, acao, children }: { titulo: string; acao?: React.ReactN
   );
 }
 
+function Etapa({ numero, titulo, descricao, acao, children }: { numero: number; titulo: string; descricao?: string; acao?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl border border-black/5 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-start gap-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white">{numero}</span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold text-foreground">{titulo}</h2>
+          {descricao && <p className="mt-0.5 text-xs text-muted-foreground">{descricao}</p>}
+        </div>
+        {acao}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export function NovaRevisitaPage() {
   const navigate = useNavigate();
   const { data: clientes } = useClientes();
@@ -128,7 +147,7 @@ export function NovaRevisitaPage() {
   const [formato, setFormato] = useState<RevisitaFormato>("vitrine");
   const [previewAberto, setPreviewAberto] = useState(false);
 
-  const [importAberto, setImportAberto] = useState(false);
+  const [previdenciaAplicada, setPrevidenciaAplicada] = useState<{ input: PrevidenciaInput; resultado: PrevidenciaResultado } | null>(null);
   const [apolicePdfs, setApolicePdfs] = useState<(File | null)[]>([null]);
   const [propostasPdfs, setPropostasPdfs] = useState<(File | null)[]>([null]);
   const [apresentacaoPdfs, setApresentacaoPdfs] = useState<(File | null)[]>([null]);
@@ -295,10 +314,9 @@ export function NovaRevisitaPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Erro ao gerar a revisita.");
-      setDados(json.dados);
+      setDados(previdenciaAplicada ? aplicarPrevidenciaNaRevisita(json.dados, previdenciaAplicada.input, previdenciaAplicada.resultado) : json.dados);
       if (json.formato) setFormato(json.formato);
-      setImportAberto(false);
-      toast.success("Comparativo importado — revise os campos abaixo antes de salvar.");
+      toast.success("Comparativo gerado — revise a etapa 4 antes de salvar.");
     } catch (err) {
       toast.error("Não foi possível importar.", { description: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -365,7 +383,7 @@ export function NovaRevisitaPage() {
         </datalist>
 
         <div className="flex flex-col gap-5">
-          <Secao titulo="Dados do cliente">
+          <Etapa numero={1} titulo="Cliente e apólice atual" descricao="Escolha o cliente e com quais apólices atuais comparar.">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <Rotulo>Nome completo</Rotulo>
@@ -436,27 +454,8 @@ export function NovaRevisitaPage() {
                 <ApolicesAtuaisSeletor apolices={apolicesCliente} selecionadas={apolicesSelecionadas} onChange={(ids) => escolherApolices(ids)} />
               </div>
             )}
-          </Secao>
 
-          <Secao
-            titulo="Coberturas"
-            acao={
-              <div className="flex items-center gap-3">
-                <Button type="button" variant="outline" size="sm" onClick={() => setImportAberto((v) => !v)}>
-                  <Sparkles className="size-3.5" />
-                  Importar com IA
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {dados.coberturas.length} cobertura{dados.coberturas.length === 1 ? "" : "s"}
-                </span>
-              </div>
-            }
-          >
-            {importAberto && (
-              <div className="mb-5 flex flex-col gap-3 rounded-lg border border-dashed border-indigo-300 bg-indigo-50/40 p-4">
-                <p className="text-xs text-muted-foreground">
-                  Envie a(s) proposta(s) nova(s) — a IA preenche as coberturas abaixo comparando com a apólice atual. Revise tudo antes de salvar.
-                </p>
+            <div className="mt-4 flex flex-col gap-3">
                 {usandoApolicesSistema ? (
                   <div className="flex flex-col gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 p-2.5 text-sm text-emerald-900">
                     <span>
@@ -515,6 +514,66 @@ export function NovaRevisitaPage() {
                     )}
                   </>
                 )}
+            </div>
+          </Etapa>
+
+          <Etapa numero={2} titulo="Resgate e previdência" descricao="Se o produto atual é resgatável, informe aqui e faça o estudo de previdência para substituí-lo.">
+            <div className="flex flex-col gap-3">
+                <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                  <Checkbox checked={temResgateImport} onCheckedChange={(v) => setTemResgateImport(!!v)} className="mt-0.5" />
+                  <span>
+                    <span className="font-medium">Produto atual é resgatável — substituir por previdência</span>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Inclui a tabela de evolução/resgate e a proposta de previdência na leitura.</p>
+                  </span>
+                </label>
+                {temResgateImport && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <Rotulo>Tabela de evolução/resgate (PDF ou imagem)</Rotulo>
+                      <Input
+                        type="file"
+                        accept="application/pdf,image/png,image/jpeg,image/webp"
+                        className="bg-white"
+                        onChange={(e) => setTabelaResgatePdf(e.target.files?.[0] ?? null)}
+                      />
+                    </div>
+                    <div>
+                      <Rotulo>Proposta de previdência</Rotulo>
+                      <PrevidenciaNaRevisita
+                        clienteId={clienteId || null}
+                        clienteNome={clienteNome}
+                        usandoEstudoSalvo={usandoEstudoSalvo}
+                        onEnviarOutroArquivo={() => setTrocarPrevidencia(true)}
+                        onArquivo={setPrevidenciaPdf}
+                        onAplicar={(input, resultado) => {
+                          setPrevidenciaAplicada({ input, resultado });
+                          setDados((prev) => aplicarPrevidenciaNaRevisita(prev, input, resultado));
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Rotulo>Resgate aparece na comparação — atual</Rotulo>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={temResgateAtual} onCheckedChange={(v) => alternarResgate("atual", !!v)} />
+                  Resgate
+                </label>
+              </div>
+              <div>
+                <Rotulo>Resgate aparece na comparação — novo</Rotulo>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={temResgateNovo} onCheckedChange={(v) => alternarResgate("novo", !!v)} />
+                  Resgate
+                </label>
+              </div>
+            </div>
+          </Etapa>
+
+          <Etapa numero={3} titulo="Proposta nova e geração com IA" descricao="Envie a(s) proposta(s) nova(s): a IA preenche a comparação da etapa 4 usando a apólice atual da etapa 1.">
+            <div className="flex flex-col gap-3">
                 <div>
                   <Rotulo>Proposta(s) da seguradora nova (PDF)</Rotulo>
                   <div className="flex flex-col gap-2">
@@ -542,47 +601,6 @@ export function NovaRevisitaPage() {
                     </Button>
                   </div>
                 </div>
-                <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-                  <Checkbox checked={temResgateImport} onCheckedChange={(v) => setTemResgateImport(!!v)} className="mt-0.5" />
-                  <span>
-                    <span className="font-medium">Produto atual é resgatável — substituir por previdência</span>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Inclui a tabela de evolução/resgate e a proposta de previdência na leitura.</p>
-                  </span>
-                </label>
-                {temResgateImport && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Rotulo>Tabela de evolução/resgate (PDF ou imagem)</Rotulo>
-                      <Input
-                        type="file"
-                        accept="application/pdf,image/png,image/jpeg,image/webp"
-                        className="bg-white"
-                        onChange={(e) => setTabelaResgatePdf(e.target.files?.[0] ?? null)}
-                      />
-                    </div>
-                    <div>
-                      <Rotulo>Proposta de previdência (PDF)</Rotulo>
-                      {usandoEstudoSalvo ? (
-                        <div className="flex flex-col gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 p-2.5 text-sm text-emerald-900">
-                          <span>
-                            Usando o último estudo de previdência gerado para este cliente
-                            {estudoSalvo?.updated_at ? ` (${new Date(estudoSalvo.updated_at).toLocaleDateString("pt-BR")})` : ""}.
-                          </span>
-                          <button type="button" className="self-start text-xs underline" onClick={() => setTrocarPrevidencia(true)}>
-                            Enviar outro arquivo
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <Input type="file" accept="application/pdf" className="bg-white" onChange={(e) => setPrevidenciaPdf(e.target.files?.[0] ?? null)} />
-                          {!estudoSalvo && clienteId && (
-                            <p className="mt-1 text-xs text-muted-foreground">Este cliente ainda não tem estudo guardado. Gere um em Previdência para ele ser usado automaticamente.</p>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
                 <div>
                   <Rotulo>Instruções extras (opcional)</Rotulo>
                   <Textarea
@@ -597,9 +615,19 @@ export function NovaRevisitaPage() {
                   {importando ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                   {importando ? "Lendo os PDFs..." : "Gerar com IA"}
                 </Button>
-              </div>
-            )}
+            </div>
+          </Etapa>
 
+          <Etapa
+            numero={4}
+            titulo="Revisar a comparação"
+            descricao="Confira e ajuste cada cobertura antes de salvar."
+            acao={
+              <span className="text-xs text-muted-foreground">
+                {dados.coberturas.length} cobertura{dados.coberturas.length === 1 ? "" : "s"}
+              </span>
+            }
+          >
             <div className="flex flex-col gap-4">
               {dados.coberturas.map((c, idx) => (
                 <div key={idx} className="relative rounded-lg bg-muted/40 p-4">
@@ -712,26 +740,7 @@ export function NovaRevisitaPage() {
                 Adicionar cobertura
               </Button>
             </div>
-          </Secao>
-
-          <Secao titulo="Resgate">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <Rotulo>Formatação atual</Rotulo>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={temResgateAtual} onCheckedChange={(v) => alternarResgate("atual", !!v)} />
-                  Resgate
-                </label>
-              </div>
-              <div>
-                <Rotulo>Nova formatação</Rotulo>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={temResgateNovo} onCheckedChange={(v) => alternarResgate("novo", !!v)} />
-                  Resgate
-                </label>
-              </div>
-            </div>
-          </Secao>
+          </Etapa>
 
           <Secao titulo="Apresentação da seguradora">
             <p className="-mt-2 mb-4 text-xs text-muted-foreground">
